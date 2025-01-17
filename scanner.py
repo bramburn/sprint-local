@@ -2,7 +2,11 @@ import os
 import pathspec
 import chardet
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
+
+# Import code analyzers
+from code_analyzer import PythonCodeAnalyzer
+from ts_code_analyzer import TypeScriptCodeAnalyzer
 
 class RepoScanner:
     """
@@ -38,6 +42,10 @@ class RepoScanner:
         
         self.repo_path = repo_path
         self.gitignore_spec = self._load_gitignore()
+        
+        # Initialize code analyzers
+        self.python_analyzer = PythonCodeAnalyzer()
+        self.typescript_analyzer = TypeScriptCodeAnalyzer()
     
     def _load_gitignore(self) -> pathspec.PathSpec:
         """
@@ -82,7 +90,7 @@ class RepoScanner:
             result = chardet.detect(raw_data)
         return result['encoding'] or 'utf-8'
     
-    def scan_files(self, max_file_size: int = 1_000_000) -> List[Dict[str, str]]:
+    def scan_files(self, max_file_size: int = 1_000_000) -> List[Dict[str, Any]]:
         """
         Scan repository files, respecting gitignore and file type rules.
         
@@ -90,7 +98,7 @@ class RepoScanner:
             max_file_size (int): Maximum file size in bytes to process
         
         Returns:
-            List[Dict[str, str]]: List of file metadata dictionaries
+            List[Dict[str, Any]]: List of file metadata dictionaries
         """
         files = []
         
@@ -112,11 +120,20 @@ class RepoScanner:
                     with open(file_path, 'r', encoding=encoding) as f:
                         content = f.read()
                     
+                    # Extract metadata based on file type
+                    if file_path.suffix == '.py':
+                        metadata = self.python_analyzer.analyze_code(content, str(file_path))
+                    elif file_path.suffix in ['.js', '.ts', '.jsx', '.tsx']:
+                        metadata = self.typescript_analyzer.analyze_code(content, str(file_path))
+                    else:
+                        metadata = {}
+                    
                     files.append({
                         'path': str(file_path),
                         'relative_path': str(file_path.relative_to(self.repo_path)),
                         'content': content,
-                        'encoding': encoding
+                        'encoding': encoding,
+                        'metadata': metadata
                     })
                 
                 except Exception as e:
