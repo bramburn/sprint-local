@@ -1,4 +1,24 @@
-# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.egg
+*.egg-info
+dist
+build
+.tox
+.nox
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.egg-info
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+instance
+.mypy_cache
+.pytest_cache
+.env# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
