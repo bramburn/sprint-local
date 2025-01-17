@@ -1,0 +1,1 @@
+we are using poetry instead of pip, use poetry install, and when running commands use `poetry run <command>`

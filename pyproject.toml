@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "sprint-py"
+version = "0.1.0"
+description = "Python script to plan and modify code"
+authors = ["Bhavesh Ramburn <nitrogen@gmail.com>"]
+license = "Copyright 2025"
+readme = "README.md"
+
+[tool.poetry.scripts]
+test = "pytest"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+langchain-community = "^0.3.14"
+faiss-cpu = "^1.9.0.post1"
+openai = "^1.59.7"
+langchain = "^0.3.14"
+pytest = "^8.3.4"
+pathspec = "^0.12.1"
+chardet = "^5.2.0"
+python-dotenv = "^1.0.1"
+tiktoken = "^0.8.0"
+sentence-transformers = "^3.3.1"
+numpy = "^2.2.1"
+langchain-openai = "^0.3.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

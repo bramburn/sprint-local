@@ -1,0 +1,9 @@
+{
+    "python.testing.pytestArgs": [
+        "."
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.defaultInterpreterPath": "C:\\Users\\bramburn\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\sprint-py-aqV3NLOV-py3.12\\Scripts\\python.exe",
+    "python.poetryPath": "poetry"
+}
