@@ -29,6 +29,10 @@ scikit-learn = "^1.6.1"
 scipy = "^1.15.1"
 pandas = "^2.2.3"
 subprocess32 = "^3.5.4"
+langgraph = "^0.2.64"
+pydantic = "^2.10.5"
+langchain-core = "^0.3.30"
+
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"

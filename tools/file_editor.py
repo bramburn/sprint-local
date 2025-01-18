@@ -1,7 +1,7 @@
 import os
 import shutil
 from typing import Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from .base_tool import BaseCustomTool
 
 class FileEditorInput(BaseModel):
@@ -12,7 +12,7 @@ class FileEditorInput(BaseModel):
     new_content: str = Field(..., description="New content to write to the file")
     backup: Optional[bool] = Field(default=True, description="Create a backup of the original file")
 
-    @validator('file_path')
+    @field_validator('file_path')
     def validate_file_path(cls, file_path):
         """
         Validate the file path to prevent potential security risks.

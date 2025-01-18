@@ -1,9 +1,8 @@
-from langchain.llms import OpenAI
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain_community.chat_models import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
 from config import config
 import os
+from langchain.chains import SimpleSequentialChain
 
 class LLMWrapper:
     def __init__(self, provider=None, model_name=None):
@@ -45,7 +44,11 @@ class LLMWrapper:
             )
             
             # Create an LLM chain
-            chain = LLMChain(llm=self.llm, prompt=prompt)
+            chain = SimpleSequentialChain(
+                llm=self.llm,
+                prompt=prompt,
+                verbose=True
+            )
             
             # Generate response
             response = chain.run(**input_variables)
