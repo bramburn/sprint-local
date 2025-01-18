@@ -83,7 +83,7 @@ def test_gitignore_exclusion(sample_repo):
     # Detailed file path logging
     logger.info("Scanned files:")
     for file_info in scanned_files:
-        logger.info(f" - {file_info['relative_path']}")
+        logger.info(f" - {file_info['metadata']['relative_path']}")
     
     # Check that ignored files are excluded
     excluded_patterns = [
@@ -93,7 +93,7 @@ def test_gitignore_exclusion(sample_repo):
         '*.log'
     ]
     
-    file_paths = [f['relative_path'] for f in scanned_files]
+    file_paths = [f['metadata']['relative_path'] for f in scanned_files]
     
     for pattern in excluded_patterns:
         matching_files = [f for f in file_paths if pattern in f]
@@ -111,12 +111,19 @@ def test_file_scanning(sample_repo):
     
     # Check file metadata
     for file_info in scanned_files:
-        assert 'path' in file_info, "Missing path in file info"
-        assert 'relative_path' in file_info, "Missing relative path in file info"
         assert 'content' in file_info, "Missing content in file info"
+        assert 'metadata' in file_info, "Missing metadata in file info"
+        metadata = file_info['metadata']
+        
+        # Check required metadata fields
+        assert 'path' in metadata, "Missing path in metadata"
+        assert 'relative_path' in metadata, "Missing relative path in metadata"
+        assert 'extension' in metadata, "Missing extension in metadata"
+        assert 'line_count' in metadata, "Missing line count in metadata"
+        assert 'line_numbers' in metadata, "Missing line numbers in metadata"
         
         # Validate file extension
-        file_ext = os.path.splitext(file_info['relative_path'])[1]
+        file_ext = metadata['extension']
         assert file_ext in scanner.SUPPORTED_EXTENSIONS, f"Unsupported file extension: {file_ext}"
 
 def test_error_handling(sample_repo):
