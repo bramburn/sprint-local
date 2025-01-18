@@ -1,8 +1,10 @@
 import os
 import pytest
-from tools import FileCreatorTool, FileEditorTool, FilePatcherTool
+from tools import FileCreatorTool, FileEditorTool, FilePatcherTool, FilePatcherInput
 
 class TestFileTools:
+
+
     def test_file_creator(self, temp_dir):
         """
         Test the FileCreatorTool for creating a new file.
@@ -106,6 +108,10 @@ class TestFileTools:
         """
         tool = FileCreatorTool()
         
+        # Print current working directory and temp directory for debugging
+        print(f"Current working directory: {os.getcwd()}")
+        print(f"Temp directory: {temp_dir}")
+        
         with pytest.raises(ValueError, match="Cannot create files outside the current project directory"):
             tool._run("/absolute/path/outside/project/file.txt", "Content")
 
@@ -124,6 +130,14 @@ class TestFileTools:
         Test the FilePatcherTool with an invalid patch.
         """
         tool = FilePatcherTool()
+        print(f"\nTesting invalid patch with file: {test_file}")
+        print("Attempting to create FilePatcherInput with invalid patch content...")
         
         with pytest.raises(ValueError, match="Invalid patch content format"):
-            tool._run(test_file, "Invalid patch content")
+            # Create input model to trigger validation
+            input_model = FilePatcherInput(
+                file_path=test_file,
+                patch_content="Invalid patch content"
+            )
+            print(f"Input model created with patch content: {input_model.patch_content}")
+            tool._run(input_model.file_path, input_model.patch_content)

@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # Import code analyzers
-from code_analyzer import PythonCodeAnalyzer
-from ts_analyzer import analyze_code
+from analyzers.python_analyzer import PythonAnalyzer
+from analyzers.typescript_analyzer import TypeScriptAnalyzer
 
 class RepoScanner:
     """
@@ -26,25 +26,30 @@ class RepoScanner:
     
     def __init__(self, repo_path: str):
         """
-        Initialize the RepoScanner.
-        
+        Initialize the RepoScanner with a repository path.
+
         Args:
             repo_path (str): Path to the repository to scan
-        
+
         Raises:
             FileNotFoundError: If the repository path does not exist
+            ValueError: If the path exists but is not a directory
         """
-        repo_path = Path(repo_path).resolve()
-        
-        # Raise FileNotFoundError if path doesn't exist
-        if not repo_path.exists():
-            raise FileNotFoundError(f"Repository path not found: {repo_path}")
-        
-        self.repo_path = repo_path
+        # Convert to Path object and get absolute path
+        self.repo_path = Path(repo_path).resolve()
+
+        # Validate repository path
+        if not self.repo_path.exists():
+            raise FileNotFoundError(f"Repository path does not exist: {self.repo_path}")
+        if not self.repo_path.is_dir():
+            raise ValueError(f"Path exists but is not a directory: {self.repo_path}")
+
+        # Load gitignore rules
         self.gitignore_spec = self._load_gitignore()
-        
+
         # Initialize code analyzers
-        self.python_analyzer = PythonCodeAnalyzer()
+        self.python_analyzer = PythonAnalyzer()
+        self.typescript_analyzer = TypeScriptAnalyzer()
     
     def _load_gitignore(self) -> pathspec.PathSpec:
         """
@@ -140,6 +145,8 @@ class RepoScanner:
                     # Perform language-specific analysis
                     if file_path.suffix == '.py':
                         file_metadata.update(self.python_analyzer.analyze(content))
+                    elif file_path.suffix in ['.ts', '.tsx', '.js', '.jsx']:
+                        file_metadata.update(self.typescript_analyzer.analyze(content))
                     
                     scanned_files.append({
                         'content': content,

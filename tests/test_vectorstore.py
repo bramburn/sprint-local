@@ -9,6 +9,23 @@ from vectorstore import CodeProcessor, CodeVectorStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@pytest.fixture(autouse=True)
+def setup_test_env():
+    """Set up test environment with mock API key."""
+    # Save original env var if it exists
+    original_key = os.environ.get('OPENAI_API_KEY')
+    
+    # Set test API key
+    os.environ['OPENAI_API_KEY'] = 'sk_test_' + 'a' * 32
+    
+    yield
+    
+    # Restore original env var
+    if original_key:
+        os.environ['OPENAI_API_KEY'] = original_key
+    else:
+        del os.environ['OPENAI_API_KEY']
+
 @pytest.fixture
 def sample_documents(tmp_path):
     """Provide comprehensive sample documents for testing."""
@@ -133,28 +150,39 @@ def test_document_addition(sample_documents):
     """Test adding documents to vector store."""
     logger.info("Testing document addition")
     logger.info(f"Sample documents: {sample_documents}")
-    
+
     vector_store = CodeVectorStore()
-    
+
     try:
         # Add debug print to check document paths
         for doc in sample_documents:
-            logger.info(f"Processing document: {doc['path']}")
-            logger.info(f"Document content: {doc['content'][:100]}...")  # First 100 chars
+            logger.info(f"Processing document content: {doc['content'][:100]}...")  # First 100 chars
+
+        # Create a copy of documents with proper metadata structure
+        formatted_docs = []
+        for doc in sample_documents:
+            # Ensure path is set properly
+            doc_path = doc.get('path', doc['relative_path'])  # Use relative_path as fallback
+            formatted_docs.append({
+                'content': doc['content'],
+                'metadata': {
+                    'path': doc_path,
+                    'relative_path': doc['relative_path']
+                }
+            })
+            logger.info(f"Added formatted document with path: {doc_path}")
+
+        vector_store.add_documents(formatted_docs)
+
+        # Verify documents were added
+        assert vector_store.store is not None, "Vector store was not initialized"
         
-        vector_store.add_documents(sample_documents)
+        # Test similarity search to verify documents are searchable
+        results = vector_store.similarity_search("hello world", k=1)
+        assert len(results) > 0, "No results found after adding documents"
         
-        # Validate store is created
-        assert vector_store.store is not None, "Vector store not created after document addition"
-        
-        # Log additional details
-        logger.info(f"Added {len(sample_documents)} documents")
-    
     except Exception as e:
-        logger.error(f"Document addition failed: {e}")
-        logger.error(f"Exception type: {type(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"Error during document addition: {str(e)}")
         raise
 
 def test_similarity_search(sample_documents):

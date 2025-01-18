@@ -1,6 +1,7 @@
 import os
 from typing import List, Dict, Optional, Any
 from pathlib import Path
+import logging
 
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
@@ -10,6 +11,8 @@ from langchain.docstore.document import Document
 from config import config
 from analyzers.python_analyzer import PythonAnalyzer
 from analyzers.typescript_analyzer import TypeScriptAnalyzer
+
+logger = logging.getLogger(__name__)
 
 class CodeProcessor:
     """
@@ -99,7 +102,11 @@ class CodeProcessor:
         
         # Update with additional metadata if provided
         if metadata:
-            base_metadata.update(metadata)
+            # If metadata is a CodeStructure object, convert it to a dictionary
+            if hasattr(metadata, '__dict__'):
+                base_metadata.update(metadata.__dict__)
+            else:
+                base_metadata.update(metadata)
         
         return [
             Document(
@@ -156,7 +163,7 @@ class CodeVectorStore:
         self.store = None
         self.metadata_store = {}
     
-    def add_documents(self, documents: List[Dict[str, Any]], repo_path: Optional[Path] = None):
+    def add_documents(self, documents: List[Dict[str, Any]], repo_path: Optional[Path] = None) -> None:
         """
         Add documents to vector store with code structure analysis.
         
@@ -167,42 +174,84 @@ class CodeVectorStore:
         Raises:
             ValueError: If document format is invalid
         """
+        if not documents:
+            logger.warning("No documents provided to add_documents")
+            return
+
         # Validate document format
-        if not documents or not all('content' in doc for doc in documents):
-            raise ValueError("Invalid document format")
-        
-        # Process documents into chunks
+        invalid_docs = [doc for doc in documents if 'content' not in doc]
+        if invalid_docs:
+            raise ValueError("Invalid document format: missing 'content' field")
+
         splits = []
         metadatas = []
         
         for doc in documents:
-            # Determine file type and extract metadata
-            file_path = Path(doc.get('path', 'unknown'))
-            
-            # Analyze code based on file extension
-            if file_path.suffix == '.py':
-                metadata = self.python_analyzer.analyze_code(doc['content'], str(file_path))
-            elif file_path.suffix in ['.js', '.ts', '.jsx', '.tsx']:
-                metadata = self.typescript_analyzer.analyze_code(doc['content'], str(file_path))
-            else:
-                metadata = {}
-            
-            # Process document into chunks
-            document_chunks = self.processor.process_file(
-                file_path, 
-                metadata=metadata, 
-                repo_path=repo_path
-            )
-            
-            splits.extend([chunk.page_content for chunk in document_chunks])
-            metadatas.extend([chunk.metadata for chunk in document_chunks])
+            try:
+                # Get document content and path
+                content = doc.get('content')
+                if not content:
+                    logger.warning(f"Skipping document with no content: {doc}")
+                    continue
+
+                # Get file path from metadata or document
+                metadata = doc.get('metadata', {})
+                file_path = Path(metadata.get('path', doc.get('path', 'unknown')))
+                
+                logger.debug(f"Processing document with path: {file_path}")
+                
+                # Analyze code based on file extension
+                if file_path.suffix == '.py':
+                    code_structure = self.python_analyzer.analyze_code(content, str(file_path))
+                    # Convert CodeStructure to dict
+                    code_metadata = {
+                        'classes': code_structure.classes,
+                        'functions': code_structure.functions,
+                        'imports': code_structure.imports,
+                        'variables': code_structure.variables
+                    }
+                elif file_path.suffix in ['.js', '.ts', '.jsx', '.tsx']:
+                    code_structure = self.typescript_analyzer.analyze_code(content, str(file_path))
+                    # Convert CodeStructure to dict
+                    code_metadata = {
+                        'classes': code_structure.classes,
+                        'functions': code_structure.functions,
+                        'imports': code_structure.imports,
+                        'variables': code_structure.variables
+                    }
+                else:
+                    code_metadata = {}
+                
+                # Merge code metadata with document metadata
+                merged_metadata = {**metadata, **code_metadata}
+                
+                # Process document into chunks
+                document_chunks = self.processor.process_file(
+                    file_path, 
+                    metadata=merged_metadata, 
+                    repo_path=repo_path
+                )
+                
+                splits.extend([chunk.page_content for chunk in document_chunks])
+                metadatas.extend([chunk.metadata for chunk in document_chunks])
+                
+                logger.debug(f"Successfully processed document: {file_path}")
+                
+            except Exception as e:
+                logger.error(f"Error processing document {doc.get('path', 'unknown')}: {str(e)}")
+                raise
         
+        if not splits:
+            logger.warning("No valid documents to add to vector store")
+            return
+            
         # Create vector store
         self.store = FAISS.from_texts(
             texts=splits, 
             embedding=self.embeddings, 
             metadatas=metadatas
         )
+        logger.info(f"Added {len(splits)} chunks to vector store")
     
     def similarity_search(self, query: str, k: int = 3, min_score: float = 0.7) -> List[Dict[str, Any]]:
         """

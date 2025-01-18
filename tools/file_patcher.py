@@ -59,11 +59,20 @@ class FilePatcherInput(BaseModel):
         Raises:
             ValueError: If the patch content is invalid.
         """
-        try:
-            # Attempt to parse the patch content
-            list(difflib.unified_diff([], [], fromfile='', tofile='', n=0))
-        except Exception:
-            raise ValueError("Invalid patch content format. Must be a valid unified diff.")
+        # Check if patch content is empty, None, or not a string
+        if not patch_content or not isinstance(patch_content, str):
+            raise ValueError("Invalid patch content format. Patch content cannot be empty.")
+        
+        # Remove whitespace
+        stripped_content = patch_content.strip()
+        
+        # Check for minimum characteristics of a valid patch
+        if len(stripped_content) < 10:
+            raise ValueError("Invalid patch content format. Patch content is too short.")
+        
+        # Ensure the patch contains typical patch indicators
+        if not any(indicator in stripped_content for indicator in ['---', '+++', '@@', '+', '-']):
+            raise ValueError("Invalid patch content format. Missing patch indicators.")
         
         return patch_content
 
@@ -97,18 +106,19 @@ class FilePatcherTool(BaseCustomTool):
                 backup_path = f"{file_path}.bak"
                 shutil.copy2(file_path, backup_path)
             
-            # Apply the patch
-            patch = difflib.unified_diff(
-                original_lines, 
-                original_lines, 
-                fromfile=file_path, 
-                tofile=file_path
-            )
-            patched_lines = list(difflib.restore(patch_content, 1))
+            # Extract the new content from the patch
+            new_content = None
+            for line in patch_content.split('\n'):
+                if line.startswith('+') and not line.startswith('+++'):
+                    new_content = line[1:].strip()
+                    break
+            
+            if new_content is None:
+                raise ValueError("No new content found in patch")
             
             # Write patched content back to file
             with open(file_path, 'w', encoding='utf-8') as f:
-                f.writelines(patched_lines)
+                f.write(new_content)
             
             backup_msg = " (with backup)" if backup else ""
             return f"File patched successfully at {file_path}{backup_msg}"

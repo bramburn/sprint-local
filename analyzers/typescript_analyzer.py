@@ -109,9 +109,16 @@ class TypeScriptAnalyzer(BaseAnalyzer):
                     cwd=project_root,  # Set the working directory to the project root
                     env=env
                 )
-                
+
                 # Send the code to the analyzer
-                stdout, stderr = process.communicate(timeout=10)  # Add a timeout
+                try:
+                    stdout, stderr = process.communicate(timeout=30)  # Increased timeout to 30 seconds
+                except subprocess.TimeoutExpired:
+                    # If the process is still running, kill it and get the output
+                    process.kill()
+                    stdout, stderr = process.communicate()
+                    print(f"TypeScript analyzer timed out. Stderr: {stderr}")
+                    raise ValueError(f"TypeScript analyzer timed out. Stderr: {stderr}")
                 
                 # Print out any error output for debugging
                 if stderr:
@@ -169,9 +176,6 @@ class TypeScriptAnalyzer(BaseAnalyzer):
                         'lineno': var.get('line', 0)
                     } for var in result.get('variables', [])]
                 )
-            
-            except subprocess.TimeoutExpired:
-                raise ValueError("TypeScript analyzer timed out")
             
             finally:
                 # Clean up the temporary file

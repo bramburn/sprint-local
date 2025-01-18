@@ -1,3 +1,4 @@
+from typing import ClassVar, Optional, Type
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
 
@@ -8,8 +9,9 @@ class BaseCustomTool(BaseTool):
     Provides a common structure for file-related tools with input validation
     and error handling.
     """
-    name: str
-    description: str
+    name: ClassVar[str]
+    description: ClassVar[str]
+    args_schema: ClassVar[Optional[Type[BaseModel]]] = None
 
     def _run(self, *args, **kwargs):
         """
