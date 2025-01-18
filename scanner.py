@@ -6,7 +6,7 @@ from typing import List, Dict, Optional, Any
 
 # Import code analyzers
 from code_analyzer import PythonCodeAnalyzer
-from ts_code_analyzer import TypeScriptCodeAnalyzer
+from ts_analyzer import analyze_code
 
 class RepoScanner:
     """
@@ -45,7 +45,6 @@ class RepoScanner:
         
         # Initialize code analyzers
         self.python_analyzer = PythonCodeAnalyzer()
-        self.typescript_analyzer = TypeScriptCodeAnalyzer()
     
     def _load_gitignore(self) -> pathspec.PathSpec:
         """
@@ -124,7 +123,7 @@ class RepoScanner:
                     if file_path.suffix == '.py':
                         metadata = self.python_analyzer.analyze_code(content, str(file_path))
                     elif file_path.suffix in ['.js', '.ts', '.jsx', '.tsx']:
-                        metadata = self.typescript_analyzer.analyze_code(content, str(file_path))
+                        metadata = analyze_code(content, str(file_path))
                     else:
                         metadata = {}
                     

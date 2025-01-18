@@ -10,42 +10,42 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @pytest.fixture
-def sample_documents():
+def sample_documents(tmp_path):
     """Provide comprehensive sample documents for testing."""
-    logger.info("Preparing sample documents")
-    return [
-        {
-            'path': 'file1.py',
-            'relative_path': 'file1.py',
-            'content': '''
+    # Create temporary files with sample code
+    file1_path = tmp_path / "file1.py"
+    file2_path = tmp_path / "file2.py"
+
+    # Write sample code to files
+    file1_path.write_text("""
 def hello_world():
-    """Simple greeting function."""
+   
     print("Hello, World!")
 
 def calculate_sum(a, b):
-    """Basic arithmetic function."""
+   
     return a + b
-'''
+""")
+
+    file2_path.write_text("""
+def divide_numbers(a, b):
+ 
+    if b == 0:
+        raise ValueError("Cannot divide by zero")
+    return a / b
+""")
+
+    # Create sample documents list
+    return [
+        {
+            'content': file1_path.read_text(),
+            'path': str(file1_path),
+            'relative_path': file1_path.name
         },
         {
-            'path': 'file2.py',
-            'relative_path': 'file2.py',
-            'content': '''
-class MathOperations:
-    """Collection of mathematical operations."""
-    
-    @staticmethod
-    def multiply(a, b):
-        """Multiply two numbers."""
-        return a * b
-    
-    @staticmethod
-    def divide(a, b):
-        """Divide two numbers safely."""
-        if b == 0:
-            raise ValueError("Cannot divide by zero")
-        return a / b
-'''
+            'content': file2_path.read_text(),
+            'path': str(file2_path),
+            'relative_path': file2_path.name
         }
     ]
 
@@ -132,10 +132,16 @@ def test_vector_store_initialization():
 def test_document_addition(sample_documents):
     """Test adding documents to vector store."""
     logger.info("Testing document addition")
+    logger.info(f"Sample documents: {sample_documents}")
     
     vector_store = CodeVectorStore()
     
     try:
+        # Add debug print to check document paths
+        for doc in sample_documents:
+            logger.info(f"Processing document: {doc['path']}")
+            logger.info(f"Document content: {doc['content'][:100]}...")  # First 100 chars
+        
         vector_store.add_documents(sample_documents)
         
         # Validate store is created
@@ -146,6 +152,9 @@ def test_document_addition(sample_documents):
     
     except Exception as e:
         logger.error(f"Document addition failed: {e}")
+        logger.error(f"Exception type: {type(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise
 
 def test_similarity_search(sample_documents):

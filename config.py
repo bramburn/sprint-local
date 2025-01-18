@@ -1,6 +1,9 @@
 from dotenv import load_dotenv
 import os
 
+VECTOR_STORE_MODULE = 'vectorstore'
+SCANNER_MODULE = 'scanner'
+
 class Config:
     _instance = None
 

@@ -1,6 +1,11 @@
 from typing import List, Dict, Any
 from pathlib import Path
 from dataclasses import dataclass
+from importlib import import_module
+from config import VECTOR_STORE_MODULE
+
+# Import the vector store module dynamically
+vector_store_module = import_module(VECTOR_STORE_MODULE)
 
 @dataclass
 class SearchResult:

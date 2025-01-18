@@ -197,3 +197,5 @@ node_modules/
 
 # JavaScript and JSON configuration files or personal data
 *.js[on]
+repomix.config.json
+repo-output.md

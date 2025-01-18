@@ -1,152 +1,91 @@
-# Code Search Engine
+# LangChain File Management Tools
 
 ## Overview
 
-This project provides a comprehensive code search and analysis tool that allows you to:
-- Scan code repositories
-- Extract code structure
-- Create vector embeddings
-- Perform semantic code searches
+This project provides a comprehensive set of file management tools for LangChain, designed to create, edit, and patch files with robust validation and error handling.
 
-## Components
+## Features
 
-### 1. Repository Scanner (`scanner.py`)
-Scans and processes code files in a repository, respecting `.gitignore` rules.
+- **File Creator Tool**: Create new files with specified content
+- **File Editor Tool**: Edit existing files with backup functionality
+- **File Patcher Tool**: Apply patches to files with comprehensive validation
 
-#### Usage Example:
-```python
-from scanner import RepoScanner
+## Installation
 
-# Scan a repository
-scanner = RepoScanner("/path/to/your/repository")
-files = scanner.scan_files()
-```
+Ensure you have Poetry installed. Then:
 
-### 2. Vector Store (`vectorstore.py`)
-Manages code embeddings and vector storage using OpenAI embeddings and FAISS.
-
-#### Usage Example:
-```python
-from vectorstore import CodeVectorStore
-from scanner import RepoScanner
-
-# Initialize vector store
-vector_store = CodeVectorStore()
-
-# Scan repository and add documents
-scanner = RepoScanner("/path/to/your/repository")
-files = scanner.scan_files()
-
-# Process and store code files
-vector_store.add_documents([
-    {"content": file_content, "metadata": file_metadata} 
-    for file_content, file_metadata in files
-])
-
-# Optionally save the vector store
-vector_store.save("/path/to/store/index")
-```
-
-### 3. Code Analyzer (`code_analyzer.py`)
-Extracts structural information from code files.
-
-#### Usage Example:
-```python
-from code_analyzer import CodeAnalyzer
-
-analyzer = CodeAnalyzer()
-file_structure = analyzer.analyze("/path/to/your/file.py")
-```
-
-### 4. Search Engine (`search.py`)
-Perform semantic searches across your codebase.
-
-#### Usage Example:
-```python
-from vectorstore import CodeVectorStore
-from search import CodeSearch
-
-# Load or create vector store
-vector_store = CodeVectorStore()
-vector_store.load("/path/to/stored/index")  # Optional: load existing index
-
-# Initialize search
-search_engine = CodeSearch(vector_store)
-
-# Perform search
-results = search_engine.search("find function that calculates tax")
-
-# Format and display results
-for result in results:
-    formatted_result = search_engine.format_result(result)
-    print(f"File: {formatted_result['location']['file']}")
-    print(f"Code: {formatted_result['code']}")
-    print(f"Relevance: {formatted_result['relevance_score']}")
-```
-
-## Complete Workflow Example
-
-```python
-from scanner import RepoScanner
-from vectorstore import CodeVectorStore
-from search import CodeSearch
-
-def index_and_search_repository(repo_path):
-    # 1. Scan repository
-    scanner = RepoScanner(repo_path)
-    files = scanner.scan_files()
-    
-    # 2. Create vector store
-    vector_store = CodeVectorStore()
-    vector_store.add_documents([
-        {"content": file_content, "metadata": file_metadata} 
-        for file_content, file_metadata in files
-    ])
-    
-    # 3. Save vector index (optional)
-    vector_store.save("/path/to/store/index")
-    
-    # 4. Perform search
-    search_engine = CodeSearch(vector_store)
-    results = search_engine.search("find database connection method")
-    
-    return results
-
-# Usage
-results = index_and_search_repository("/path/to/your/repository")
-```
-
-## Configuration
-
-1. Set up your OpenAI API key in `.env`:
-```
-OPENAI_API_KEY=your_openai_api_key_here
-```
-
-## Dependencies
-
-- Install dependencies using Poetry:
 ```bash
 poetry install
 ```
 
-## Testing
+## Usage
 
-Run tests using:
-```bash
-poetry run pytest
+### File Creator Tool
+
+```python
+from tools import FileCreatorTool
+
+creator = FileCreatorTool()
+result = creator._run("example.txt", "Hello, World!")
+print(result)  # File created successfully
 ```
 
-## Limitations
+### File Editor Tool
 
-- Requires OpenAI API access
-- Performance depends on embedding model
-- Large repositories may take time to index
+```python
+from tools import FileEditorTool
+
+editor = FileEditorTool()
+result = editor._run("example.txt", "Updated content", backup=True)
+print(result)  # File edited successfully
+```
+
+### File Patcher Tool
+
+```python
+from tools import FilePatcherTool
+
+patcher = FilePatcherTool()
+patch_content = """@@ -1 +1 @@
+-Original content
++Patched content"""
+result = patcher._run("example.txt", patch_content)
+print(result)  # File patched successfully
+```
+
+## Running Tests
+
+```bash
+poetry run pytest tests/
+```
+
+## Key Components
+
+- `tools/base_tool.py`: Base class for custom LangChain tools
+- `tools/file_creator.py`: Tool for creating new files
+- `tools/file_editor.py`: Tool for editing existing files
+- `tools/file_patcher.py`: Tool for applying patches to files
+
+## Security Features
+
+- Path validation to prevent file system traversal
+- Backup creation for edit and patch operations
+- Comprehensive input validation
 
 ## Contributing
 
-Contributions are welcome! Please submit pull requests or open issues on our repository.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
-[Your License Here]
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Contact
+
+Your Name - nitrogen@gmail.com
+
+Project Link: [https://github.com/yourusername/langchain-file-tools](https://github.com/yourusername/langchain-file-tools)

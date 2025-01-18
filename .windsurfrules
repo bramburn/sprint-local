@@ -1,1 +1,7 @@
 we are using poetry instead of pip, use poetry install, and when running commands use `poetry run <command>`
+dont install NPM dependencies in poetry's toml, it should go to package.json
+keep all tests in ./tests
+keep all js/ts code in ./src
+keep all python code in ./
+we are in a windows environment, use powershell commands 
+to run npm commands use `npm run <command>`
