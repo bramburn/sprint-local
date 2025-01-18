@@ -42,7 +42,7 @@ class CodeProcessor:
     
     def process_file(self, file_path: Path, metadata: Dict = None, repo_path: Path = None) -> List[Document]:
         """
-        Process a single file into document chunks.
+        Process a single file into document chunks with line number tracking.
 
         Args:
             file_path (Path): Path to the file to process
@@ -50,7 +50,7 @@ class CodeProcessor:
             repo_path (Path, optional): Root repository path for relative path calculation
 
         Returns:
-            List[Document]: Processed document chunks
+            List[Document]: Processed document chunks with line number metadata
         """
         # Convert to Path if not already
         file_path = Path(file_path)
@@ -70,12 +70,25 @@ class CodeProcessor:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+            lines = f.readlines()
+            content = ''.join(lines)
         
         chunks = self.splitter.split_text(content)
         
+        # Compute line numbers for each chunk
+        chunk_line_numbers = []
+        current_line = 1
+        for chunk in chunks:
+            chunk_lines = chunk.count('\n') + 1
+            end_line = current_line + chunk_lines - 1
+            chunk_line_numbers.append((current_line, end_line))
+            current_line = end_line + 1
+        
         # Prepare base metadata
-        base_metadata = {'file_path': str(file_path)}
+        base_metadata = {
+            'file_path': str(file_path),
+            'total_lines': len(lines)
+        }
         
         # Add relative path if repo_path is provided
         if repo_path:
@@ -91,8 +104,12 @@ class CodeProcessor:
         return [
             Document(
                 page_content=chunk, 
-                metadata=base_metadata
-            ) for chunk in chunks
+                metadata={
+                    **base_metadata,
+                    'start_line': line_range[0],
+                    'end_line': line_range[1]
+                }
+            ) for chunk, line_range in zip(chunks, chunk_line_numbers)
         ]
 
 class CodeVectorStore:
@@ -215,6 +232,37 @@ class CodeVectorStore:
                 'file_path': result.metadata.get('file_path', '')
             } for result, score in results if score <= min_score
         ]
+    
+    def search_with_context(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """
+        Enhanced search method that returns results with line number context.
+        
+        Args:
+            query (str): Search query
+            k (int): Number of results to return
+        
+        Returns:
+            List[Dict[str, Any]]: Search results with line number context
+        """
+        # Perform similarity search
+        results = self.store.similarity_search_with_score(query, k=k)
+        
+        enhanced_results = []
+        for doc, score in results:
+            result = {
+                'content': doc.page_content,
+                'metadata': {
+                    'file_path': doc.metadata.get('file_path', 'Unknown'),
+                    'relative_path': doc.metadata.get('relative_path', 'Unknown'),
+                    'start_line': doc.metadata.get('start_line', 0),
+                    'end_line': doc.metadata.get('end_line', 0),
+                    'total_lines': doc.metadata.get('total_lines', 0)
+                },
+                'score': score
+            }
+            enhanced_results.append(result)
+        
+        return enhanced_results
     
     def save(self, path: Optional[str] = None):
         """

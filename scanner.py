@@ -2,7 +2,7 @@ import os
 import pathspec
 import chardet
 from pathlib import Path
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Any
 
 # Import code analyzers
 from code_analyzer import PythonCodeAnalyzer
@@ -97,46 +97,57 @@ class RepoScanner:
             max_file_size (int): Maximum file size in bytes to process
         
         Returns:
-            List[Dict[str, Any]]: List of file metadata dictionaries
+            List[Dict[str, Any]]: List of file metadata dictionaries with line number tracking
         """
-        files = []
+        scanned_files = []
         
-        for root, _, filenames in os.walk(self.repo_path):
-            for filename in filenames:
+        for root, _, files in os.walk(self.repo_path):
+            for filename in files:
                 file_path = Path(root) / filename
                 
-                # Skip if file is ignored or doesn't have a supported extension
-                if (self._is_file_ignored(file_path) or 
-                    file_path.suffix not in self.SUPPORTED_EXTENSIONS):
-                    continue
-                
-                # Skip files that are too large
+                # Skip files larger than max_file_size
                 if file_path.stat().st_size > max_file_size:
                     continue
                 
+                # Skip files not matching supported extensions
+                if not any(file_path.suffix == ext for ext in self.SUPPORTED_EXTENSIONS):
+                    continue
+                
+                # Skip ignored files
+                if self._is_file_ignored(file_path):
+                    continue
+                
                 try:
+                    # Detect file encoding
                     encoding = self._detect_file_encoding(file_path)
+                    
+                    # Read file content and track line numbers
                     with open(file_path, 'r', encoding=encoding) as f:
-                        content = f.read()
+                        lines = f.readlines()
+                        content = ''.join(lines)
+                        line_numbers = list(range(1, len(lines) + 1))
                     
-                    # Extract metadata based on file type
-                    if file_path.suffix == '.py':
-                        metadata = self.python_analyzer.analyze_code(content, str(file_path))
-                    elif file_path.suffix in ['.js', '.ts', '.jsx', '.tsx']:
-                        metadata = analyze_code(content, str(file_path))
-                    else:
-                        metadata = {}
-                    
-                    files.append({
+                    # Analyze file content
+                    file_metadata = {
                         'path': str(file_path),
                         'relative_path': str(file_path.relative_to(self.repo_path)),
+                        'size': file_path.stat().st_size,
+                        'extension': file_path.suffix,
+                        'line_count': len(lines),
+                        'line_numbers': line_numbers
+                    }
+                    
+                    # Perform language-specific analysis
+                    if file_path.suffix == '.py':
+                        file_metadata.update(self.python_analyzer.analyze(content))
+                    
+                    scanned_files.append({
                         'content': content,
-                        'encoding': encoding,
-                        'metadata': metadata
+                        'metadata': file_metadata
                     })
                 
                 except Exception as e:
-                    # Log or handle file reading errors
-                    print(f"Error reading file {file_path}: {e}")
+                    # Log or handle file processing errors
+                    print(f"Error processing {file_path}: {e}")
         
-        return files
+        return scanned_files
