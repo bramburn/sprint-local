@@ -1,176 +1,423 @@
 import pytest
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
+import ast
 from tools.driver_tools import (
-    DriverTools,
-    CodeGenerationOutput,
-    StaticAnalysisOutput,
-    StaticAnalysisIssue,
-    TestResult,
-    ErrorAnalysisOutput,
-    CodeFixOutput
+    DriverTools, TestCase, DebugSuggestion, PerformanceMetrics,
+    CodeReview, RefactoringPlan
 )
 
 @pytest.fixture
 def mock_llm():
     llm = Mock()
-    llm.agenerate = AsyncMock()
+    llm.aask = AsyncMock()
+    llm.parse_json = Mock()
     return llm
 
 @pytest.fixture
 def driver_tools(mock_llm):
     return DriverTools(mock_llm)
 
-@pytest.mark.asyncio
-async def test_generate_code(driver_tools, mock_llm):
-    # Setup
-    plan_description = "Create a function to calculate factorial"
-    mock_llm.agenerate.return_value = """
-    Function Name: calculate_factorial
-    Parameters: 
-    - n: int
-    Return Type: int
-    Dependencies:
-    - math (optional)
-    
-    Implementation:
-    def calculate_factorial(n: int) -> int:
-        '''Calculate the factorial of a non-negative integer.'''
-        if n < 0:
-            raise ValueError("Factorial is not defined for negative numbers")
-        if n == 0:
-            return 1
-        return n * calculate_factorial(n - 1)
-    """
-    
-    # Execute
-    result = await driver_tools.generate_code(plan_description)
-    
-    # Assert
-    assert isinstance(result, CodeGenerationOutput)
-    assert result.function_name == "placeholder"  # Current placeholder implementation
-    assert isinstance(result.parameters, list)
-    assert isinstance(result.dependencies, list)
-    mock_llm.agenerate.assert_called_once()
-
-@pytest.mark.asyncio
-async def test_analyze_code(driver_tools):
-    # Setup
-    code = """
-def example():
-    unused_var = 42
-    return None
-    """
-    
-    # Execute
-    with patch('subprocess.run') as mock_run:
-        mock_run.return_value.stdout = '[]'  # Mock pylint JSON output
-        result = await driver_tools.analyze_code(code)
-    
-    # Assert
-    assert isinstance(result, StaticAnalysisOutput)
-    assert isinstance(result.issues, list)
-    assert all(isinstance(issue, StaticAnalysisIssue) for issue in result.issues)
-    assert isinstance(result.has_critical_issues, bool)
-
-@pytest.mark.asyncio
-async def test_run_tests(driver_tools):
-    # Setup
-    code = """
-def add(a, b):
+@pytest.fixture
+def sample_function():
+    return """
+def add_numbers(a: int, b: int) -> int:
+    '''Add two numbers together.'''
     return a + b
-    """
-    test_cases = [
-        {"input": {"a": 1, "b": 2}, "expected": 3},
-        {"input": {"a": -1, "b": 1}, "expected": 0}
-    ]
-    
-    # Execute
-    results = await driver_tools.run_tests(code, test_cases)
-    
-    # Assert
-    assert isinstance(results, list)
-    assert all(isinstance(result, TestResult) for result in results)
-    assert len(results) == len(test_cases)
+"""
 
 @pytest.mark.asyncio
-async def test_analyze_errors(driver_tools, mock_llm):
-    # Setup
-    code = "def add(a, b): return a + b"
-    test_results = [
-        TestResult(
-            success=False,
-            output="",
-            error_message="TypeError: unsupported operand type(s)",
-            execution_time=0.1
-        )
-    ]
-    mock_llm.agenerate.return_value = """
-    Error Type: TypeError
-    Description: Operation not supported between types
-    Suggested Fixes:
-    - Add type checking
-    - Convert inputs to compatible types
-    Affected Lines: [1]
-    """
+async def test_generate_test_cases(driver_tools, mock_llm, sample_function):
+    # Setup mock response
+    mock_llm.parse_json.return_value = [{
+        "test_name": "test_add_normal",
+        "test_code": "def test_add_normal():\n    assert add_numbers(2, 3) == 5",
+        "description": "Test normal addition",
+        "expected_result": 5
+    }, {
+        "test_name": "test_add_negative",
+        "test_code": "def test_add_negative():\n    assert add_numbers(-1, 1) == 0",
+        "description": "Test with negative number",
+        "expected_result": 0
+    }]
     
-    # Execute
-    result = await driver_tools.analyze_errors(code, test_results)
+    # Test the method
+    result = await driver_tools.generate_test_cases(sample_function)
     
-    # Assert
+    # Verify the result
     assert isinstance(result, list)
-    assert all(isinstance(error, ErrorAnalysisOutput) for error in result)
-    if result:  # Current placeholder implementation returns a list with one item
-        assert isinstance(result[0].error_type, str)
-        assert isinstance(result[0].suggested_fixes, list)
-    mock_llm.agenerate.assert_called_once()
+    assert len(result) == 2
+    assert isinstance(result[0], TestCase)
+    assert result[0].function_name == "add_numbers"
+    assert result[0].test_name == "test_add_normal"
+    assert "assert add_numbers(2, 3) == 5" in result[0].test_code
+    
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "add_numbers" in mock_llm.aask.call_args[0][0]
 
 @pytest.mark.asyncio
-async def test_fix_code(driver_tools, mock_llm):
-    # Setup
-    code = "def add(a, b): return a + b"
-    error_analysis = [
-        ErrorAnalysisOutput(
-            error_type="TypeError",
-            description="Operation not supported between types",
-            suggested_fixes=["Add type checking"],
-            affected_lines=[1]
-        )
-    ]
-    mock_llm.agenerate.return_value = """
-    Fixed Code:
-    def add(a: int, b: int) -> int:
-        return a + b
+async def test_debug_error(driver_tools, mock_llm):
+    # Setup test data
+    code = "def divide(a, b): return a / b"
+    error_message = "ZeroDivisionError: division by zero"
     
-    Changes Made:
-    - Added type hints
+    # Setup mock response
+    mock_llm.parse_json.return_value = {
+        "error_type": "ZeroDivisionError",
+        "error_message": "Division by zero occurred",
+        "possible_causes": ["b parameter is 0"],
+        "suggested_fixes": ["Add input validation"],
+        "code_example": "def divide(a, b):\n    if b == 0:\n        raise ValueError('Cannot divide by zero')\n    return a / b"
+    }
     
-    Confidence: 0.9
-    """
+    # Test the method
+    result = await driver_tools.debug_error(code, error_message)
     
-    # Execute
-    result = await driver_tools.fix_code(code, error_analysis)
+    # Verify the result
+    assert isinstance(result, DebugSuggestion)
+    assert result.error_type == "ZeroDivisionError"
+    assert len(result.possible_causes) == 1
+    assert len(result.suggested_fixes) == 1
+    assert result.code_example is not None
     
-    # Assert
-    assert isinstance(result, CodeFixOutput)
-    assert isinstance(result.original_code, str)
-    assert isinstance(result.fixed_code, str)
-    assert isinstance(result.changes_made, list)
-    assert isinstance(result.confidence_score, float)
-    mock_llm.agenerate.assert_called_once()
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "ZeroDivisionError" in mock_llm.aask.call_args[0][0]
 
 @pytest.mark.asyncio
-async def test_fix_code_no_errors(driver_tools, mock_llm):
-    # Setup
-    code = "def add(a: int, b: int) -> int: return a + b"
-    error_analysis = []
+async def test_analyze_performance(driver_tools, mock_llm):
+    # Setup test data
+    code = """
+def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+"""
     
-    # Execute
-    result = await driver_tools.fix_code(code, error_analysis)
+    # Setup mock response
+    mock_llm.parse_json.return_value = {
+        "execution_time": 1.5,
+        "memory_usage": 2.0,
+        "bottlenecks": ["Recursive calls causing exponential time complexity"],
+        "optimization_suggestions": ["Use dynamic programming approach"]
+    }
     
-    # Assert
-    assert isinstance(result, CodeFixOutput)
-    assert result.original_code == code
-    assert result.fixed_code == code
-    assert len(result.changes_made) == 0
-    assert result.confidence_score == 1.0
-    mock_llm.agenerate.assert_not_called() 
+    # Test the method
+    result = await driver_tools.analyze_performance(code)
+    
+    # Verify the result
+    assert isinstance(result, PerformanceMetrics)
+    assert result.execution_time == 1.5
+    assert result.memory_usage == 2.0
+    assert len(result.bottlenecks) == 1
+    assert len(result.optimization_suggestions) == 1
+    
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "fibonacci" in mock_llm.aask.call_args[0][0]
+
+def test_extract_function_signature(driver_tools):
+    # Test with simple function
+    code = "def test_func(a, b): pass"
+    tree = ast.parse(code)
+    func_def = tree.body[0]
+    
+    result = driver_tools.extract_function_signature(func_def)
+    assert result == "def test_func(a, b):"
+    
+    # Test with *args and **kwargs
+    code = "def complex_func(a, *args, b=1, **kwargs): pass"
+    tree = ast.parse(code)
+    func_def = tree.body[0]
+    
+    result = driver_tools.extract_function_signature(func_def)
+    assert result == "def complex_func(a, *args, b, **kwargs):"
+
+@pytest.mark.asyncio
+async def test_generate_test_cases_invalid_code(driver_tools, mock_llm):
+    # Test with invalid Python code
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.generate_test_cases("invalid python code {")
+    
+    assert "Failed to parse code" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_generate_test_cases_invalid_response(driver_tools, mock_llm, sample_function):
+    # Setup mock to raise an exception
+    mock_llm.parse_json.side_effect = ValueError("Invalid JSON")
+    
+    # Test the method raises an exception
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.generate_test_cases(sample_function)
+    
+    assert "Failed to parse LLM response" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_debug_error_invalid_response(driver_tools, mock_llm):
+    # Setup mock to raise an exception
+    mock_llm.parse_json.side_effect = ValueError("Invalid JSON")
+    
+    # Test the method raises an exception
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.debug_error("def test(): pass", "Error message")
+    
+    assert "Failed to parse LLM response" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_analyze_performance_invalid_response(driver_tools, mock_llm):
+    # Setup mock to raise an exception
+    mock_llm.parse_json.side_effect = ValueError("Invalid JSON")
+    
+    # Test the method raises an exception
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.analyze_performance("def test(): pass")
+    
+    assert "Failed to parse LLM response" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_review_code(driver_tools, mock_llm):
+    # Setup test data
+    code = """
+def process_data(data: dict) -> list:
+    result = []
+    for item in data.items():
+        result.append(item[1])
+    return result
+"""
+    
+    # Setup mock response
+    mock_llm.parse_json.return_value = {
+        "issues": [{
+            "line_number": 4,
+            "severity": "medium",
+            "description": "Use tuple unpacking for better readability"
+        }],
+        "suggestions": ["Use list comprehension"],
+        "best_practices": ["Add type hints for clarity"],
+        "security_concerns": ["Input validation missing"]
+    }
+    
+    # Test the method
+    result = await driver_tools.review_code(code, "process.py")
+    
+    # Verify the result
+    assert isinstance(result, CodeReview)
+    assert len(result.issues) == 1
+    assert len(result.suggestions) == 1
+    assert len(result.best_practices) == 1
+    assert len(result.security_concerns) == 1
+    
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "process_data" in mock_llm.aask.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_suggest_refactoring(driver_tools, mock_llm):
+    # Setup test data
+    code = """
+def calculate_total(items):
+    total = 0
+    for item in items:
+        total += item.price
+    return total
+"""
+    
+    # Setup mock response
+    mock_llm.parse_json.return_value = {
+        "suggested_changes": [
+            "Use sum() with generator expression",
+            "Add type hints"
+        ],
+        "benefits": [
+            "More concise code",
+            "Better type safety"
+        ],
+        "risks": [
+            "May be less readable for beginners"
+        ],
+        "effort_estimate": "Low"
+    }
+    
+    # Test the method
+    result = await driver_tools.suggest_refactoring(code)
+    
+    # Verify the result
+    assert isinstance(result, RefactoringPlan)
+    assert len(result.suggested_changes) == 2
+    assert len(result.benefits) == 2
+    assert len(result.risks) == 1
+    assert result.effort_estimate == "Low"
+    
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "calculate_total" in mock_llm.aask.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_generate_documentation(driver_tools, mock_llm):
+    # Setup test data
+    code = """
+def process_order(order_id: str, items: list) -> dict:
+    '''Process an order and return the result.'''
+    # Implementation
+    pass
+"""
+    
+    # Setup mock response
+    mock_llm.aask.return_value = """
+# Order Processing Module
+
+This module handles order processing functionality.
+
+## Functions
+
+### process_order
+
+Process an order and return the processing result.
+
+Args:
+    order_id (str): The unique identifier of the order
+    items (list): List of items in the order
+
+Returns:
+    dict: Processing result containing status and details
+"""
+    
+    # Test the method
+    result = await driver_tools.generate_documentation(code, "readme")
+    
+    # Verify the result
+    assert isinstance(result, str)
+    assert "Order Processing Module" in result
+    assert "process_order" in result
+    
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "process_order" in mock_llm.aask.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_analyze_dependencies(driver_tools, mock_llm):
+    # Setup test data
+    code = """
+import pandas as pd
+import numpy as np
+from datetime import datetime
+import json
+
+def process_data(data: pd.DataFrame) -> dict:
+    result = np.mean(data['values'])
+    return json.dumps({'result': float(result)})
+"""
+    
+    # Setup mock response
+    mock_llm.parse_json.return_value = {
+        "required_packages": ["pandas", "numpy"],
+        "unused_imports": ["datetime"],
+        "suggested_versions": {
+            "pandas": ">=1.3.0",
+            "numpy": ">=1.20.0"
+        },
+        "security_concerns": [],
+        "optimization_suggestions": ["Import only needed functions"]
+    }
+    
+    # Test the method
+    result = await driver_tools.analyze_dependencies(code)
+    
+    # Verify the result
+    assert isinstance(result, dict)
+    assert "required_packages" in result
+    assert "unused_imports" in result
+    assert len(result["required_packages"]) == 2
+    assert len(result["unused_imports"]) == 1
+    
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "pandas" in mock_llm.aask.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_suggest_tests(driver_tools, mock_llm):
+    # Setup test data
+    code = """
+def validate_email(email: str) -> bool:
+    if '@' not in email or '.' not in email:
+        return False
+    return True
+"""
+    
+    # Setup mock response
+    mock_llm.parse_json.return_value = {
+        "unit_tests": [
+            "test_valid_email",
+            "test_invalid_email"
+        ],
+        "integration_tests": [
+            "test_email_validation_api"
+        ],
+        "edge_cases": [
+            "Empty string",
+            "Multiple @ symbols"
+        ],
+        "expected_coverage": {
+            "line": 0.9,
+            "branch": 0.85
+        },
+        "testing_strategy": "Focus on edge cases and invalid inputs"
+    }
+    
+    # Test the method
+    result = await driver_tools.suggest_tests(code, 0.9)
+    
+    # Verify the result
+    assert isinstance(result, dict)
+    assert "unit_tests" in result
+    assert "edge_cases" in result
+    assert len(result["unit_tests"]) == 2
+    assert len(result["edge_cases"]) == 2
+    
+    # Verify LLM was called correctly
+    mock_llm.aask.assert_called_once()
+    assert "validate_email" in mock_llm.aask.call_args[0][0]
+
+@pytest.mark.asyncio
+async def test_review_code_invalid_response(driver_tools, mock_llm):
+    # Setup mock to raise an exception
+    mock_llm.parse_json.side_effect = ValueError("Invalid JSON")
+    
+    # Test the method raises an exception
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.review_code("def test(): pass", "test.py")
+    
+    assert "Failed to parse LLM response" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_suggest_refactoring_invalid_response(driver_tools, mock_llm):
+    # Setup mock to raise an exception
+    mock_llm.parse_json.side_effect = ValueError("Invalid JSON")
+    
+    # Test the method raises an exception
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.suggest_refactoring("def test(): pass")
+    
+    assert "Failed to parse LLM response" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_analyze_dependencies_invalid_response(driver_tools, mock_llm):
+    # Setup mock to raise an exception
+    mock_llm.parse_json.side_effect = ValueError("Invalid JSON")
+    
+    # Test the method raises an exception
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.analyze_dependencies("import os")
+    
+    assert "Failed to parse LLM response" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_suggest_tests_invalid_response(driver_tools, mock_llm):
+    # Setup mock to raise an exception
+    mock_llm.parse_json.side_effect = ValueError("Invalid JSON")
+    
+    # Test the method raises an exception
+    with pytest.raises(ValueError) as exc_info:
+        await driver_tools.suggest_tests("def test(): pass")
+    
+    assert "Failed to parse LLM response" in str(exc_info.value) 
