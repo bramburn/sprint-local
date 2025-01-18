@@ -40,3 +40,11 @@ class DriverState:
 
     def values(self):
         return self._data.values()
+
+    @property
+    def selected_plan(self):
+        return self._data.get('selected_plan')
+
+    @selected_plan.setter
+    def selected_plan(self, value):
+        self._data['selected_plan'] = value

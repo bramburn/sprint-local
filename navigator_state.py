@@ -1,5 +1,5 @@
 from typing import Annotated, TypedDict, Optional, List, Dict
-from langgraph.graph.state import add_to_list
+from operator import add
 
 class NavigatorState(TypedDict):
     """
@@ -9,11 +9,11 @@ class NavigatorState(TypedDict):
         problem_description (str): Description of the problem to be solved.
         solution_plans (List[Dict]): List of generated solution plans.
         selected_plan (Optional[Dict]): The currently selected best plan.
-        reflection_insights (Optional[List[str]]): Insights generated during reflection.
+        reflection_insights (List[str]): Insights gathered during problem-solving.
         decision (Optional[str]): Current decision status (continue, refine, switch, terminate).
     """
     problem_description: str
-    solution_plans: Annotated[List[Dict], add_to_list]
+    solution_plans: Annotated[List[Dict], add]
     selected_plan: Optional[Dict]
-    reflection_insights: Annotated[List[str], add_to_list]
+    reflection_insights: Annotated[List[str], add]
     decision: Optional[str]

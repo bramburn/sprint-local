@@ -1,5 +1,8 @@
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
+import os
+import json
+import aiofiles
 
 class NavigatorMemorySaver(BaseCheckpointSaver):
     """
@@ -19,6 +22,14 @@ class NavigatorMemorySaver(BaseCheckpointSaver):
         """
         self.storage_path = storage_path
         self.memory_store: Dict[str, Any] = {}
+        
+        # Create storage directory if it doesn't exist
+        if storage_path:
+            os.makedirs(storage_path, exist_ok=True)
+    
+    def _get_file_path(self, key: str) -> str:
+        """Get the file path for a given key."""
+        return os.path.join(self.storage_path, f"{key}.json") if self.storage_path else None
     
     async def put(
         self, 
@@ -35,13 +46,12 @@ class NavigatorMemorySaver(BaseCheckpointSaver):
         Returns:
             Dict[str, Any]: The saved checkpoint.
         """
-        # Generate a unique key for the checkpoint
         key = f"{config.get('thread_id', 'default')}"
         
-        # Store the checkpoint
         if self.storage_path:
-            # TODO: Implement file-based storage if needed
-            pass
+            file_path = self._get_file_path(key)
+            async with aiofiles.open(file_path, 'w') as f:
+                await f.write(json.dumps(checkpoint))
         else:
             self.memory_store[key] = checkpoint
         
@@ -61,4 +71,58 @@ class NavigatorMemorySaver(BaseCheckpointSaver):
             Optional[Dict[str, Any]]: The retrieved checkpoint, or None if not found.
         """
         key = f"{config.get('thread_id', 'default')}"
+        
+        if self.storage_path:
+            file_path = self._get_file_path(key)
+            if os.path.exists(file_path):
+                async with aiofiles.open(file_path, 'r') as f:
+                    content = await f.read()
+                    return json.loads(content)
+            return None
         return self.memory_store.get(key)
+
+    async def delete(self, config: Dict[str, Any]) -> None:
+        """
+        Delete a checkpoint from memory or file.
+        
+        Args:
+            config (Dict[str, Any]): Configuration for the checkpoint to delete.
+        """
+        key = f"{config.get('thread_id', 'default')}"
+        
+        if self.storage_path:
+            file_path = self._get_file_path(key)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        else:
+            self.memory_store.pop(key, None)
+
+    async def list(self) -> Dict[str, Any]:
+        """
+        List all checkpoints in memory or file.
+        
+        Returns:
+            Dict[str, Any]: Dictionary of all checkpoints.
+        """
+        if self.storage_path:
+            checkpoints = {}
+            for filename in os.listdir(self.storage_path):
+                if filename.endswith('.json'):
+                    key = filename[:-5]  # Remove .json extension
+                    file_path = os.path.join(self.storage_path, filename)
+                    async with aiofiles.open(file_path, 'r') as f:
+                        content = await f.read()
+                        checkpoints[key] = json.loads(content)
+            return checkpoints
+        return self.memory_store.copy()
+
+    async def clear(self) -> None:
+        """
+        Clear all checkpoints from memory or file.
+        """
+        if self.storage_path:
+            for filename in os.listdir(self.storage_path):
+                if filename.endswith('.json'):
+                    os.remove(os.path.join(self.storage_path, filename))
+        else:
+            self.memory_store.clear()

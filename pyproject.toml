@@ -32,6 +32,7 @@ subprocess32 = "^3.5.4"
 langgraph = "^0.2.64"
 pydantic = "^2.10.5"
 langchain-core = "^0.3.30"
+aiofiles = "^24.1.0"
 
 
 [tool.poetry.group.dev.dependencies]

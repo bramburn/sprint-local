@@ -38,35 +38,35 @@ class NavigatorGraph:
         self.graph = self._create_graph()
         
         # Add nodes
-        self.graph.add_node("reflection", NavigatorNodes.create_reflection_node(self.llm))
-        self.graph.add_node("solution_plans", NavigatorNodes.create_solution_plans_node(self.llm))
-        self.graph.add_node("plan_selection", NavigatorNodes.create_plan_selection_node(self.llm))
-        self.graph.add_node("decision", NavigatorNodes.create_decision_node(self.llm))
+        self.graph.add_node("reflection_node", NavigatorNodes.create_reflection_node(self.llm))
+        self.graph.add_node("solution_plans_node", NavigatorNodes.create_solution_plans_node(self.llm))
+        self.graph.add_node("plan_selection_node", NavigatorNodes.create_plan_selection_node(self.llm))
+        self.graph.add_node("decision_node", NavigatorNodes.create_decision_node(self.llm))
         
         # Add edges
-        self.graph.add_edge("reflection", "solution_plans")
-        self.graph.add_edge("solution_plans", "plan_selection")
-        self.graph.add_edge("plan_selection", "decision")
+        self.graph.add_edge("reflection_node", "solution_plans_node")
+        self.graph.add_edge("solution_plans_node", "plan_selection_node")
+        self.graph.add_edge("plan_selection_node", "decision_node")
         
         # Conditional edges for decision-making
         def route_decision(state: NavigatorState):
             decision = state.get('decision', 'continue')
             
             if decision == 'refine':
-                return "solution_plans"
+                return "solution_plans_node"
             elif decision == 'switch':
-                return "reflection"
+                return "reflection_node"
             elif decision == 'terminate':
                 return None
             else:
                 return None
         
         self.graph.add_conditional_edges(
-            "decision",
+            "decision_node",
             route_decision
         )
         
-        self.graph.set_entry_point("reflection")
+        self.graph.set_entry_point("reflection_node")
 
         # Initialize memory
         self.memory = NavigatorMemorySaver(storage_path=memory_path)
