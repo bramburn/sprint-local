@@ -45,7 +45,7 @@ class DriverGraph:
         # Add conditional edges
         self.graph.add_conditional_edges(
             "fix",
-            lambda x: "pass" if x["test_results"].get("status") == "passed" else "fix",
+            lambda x: "pass" if x.test_results.get("status") == "passed" else "fix",
             {
                 "pass": END,
                 "fix": "generate"
@@ -95,7 +95,7 @@ class DriverGraph:
         if self.memory_saver:
             await self.memory_saver.put(
                 {"thread_id": thread_id},
-                result.dict()
+                result.model_dump()
             )
         
         return {

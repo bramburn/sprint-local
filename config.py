@@ -4,6 +4,10 @@ import os
 VECTOR_STORE_MODULE = 'vectorstore'
 SCANNER_MODULE = 'scanner'
 
+# Add a default storage path
+STORAGE_PATH = os.path.join(os.path.expanduser("~"), ".sprint", "storage")
+os.makedirs(STORAGE_PATH, exist_ok=True)
+
 class Config:
     _instance = None
 

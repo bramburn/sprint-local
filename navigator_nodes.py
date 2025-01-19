@@ -49,15 +49,14 @@ Your response must be a valid JSON object with the following structure:
             Returns:
                 Dict: Updated state with reflection insights.
             """
-            problem = state['problem_description']
+            problem = state.problem_description
             insights = reflection_chain.invoke({
                 "problem_description": problem
             })
             
-            return {
-                **state,
-                "reflection_insights": insights.get('insights', [])
-            }
+            state_dict = state.model_dump()
+            state_dict["reflection_insights"] = insights.get('insights', [])
+            return state_dict
         
         return reflect
     
@@ -102,18 +101,17 @@ Your response must be a valid JSON object with the following structure:
             Returns:
                 Dict: Updated state with generated solution plans.
             """
-            problem = state['problem_description']
-            insights = state.get('reflection_insights', [])
+            problem = state.problem_description
+            insights = state.reflection_insights if hasattr(state, 'reflection_insights') else []
             
             plans = plans_chain.invoke({
                 "problem_description": problem,
                 "reflection_insights": insights
             })
             
-            return {
-                **state,
-                "solution_plans": plans.get('plans', [])
-            }
+            state_dict = state.model_dump()
+            state_dict["solution_plans"] = plans.get('plans', [])
+            return state_dict
         
         return generate_plans
     
@@ -157,18 +155,17 @@ Your response must be a valid JSON object with the following structure:
             Returns:
                 Dict: Updated state with the selected plan.
             """
-            problem = state['problem_description']
-            plans = state['solution_plans']
+            problem = state.problem_description
+            plans = state.solution_plans
             
             selected_plan = selection_chain.invoke({
                 "problem_description": problem,
                 "solution_plans": plans
             })
             
-            return {
-                **state,
-                "selected_plan": selected_plan.get('best_plan', None)
-            }
+            state_dict = state.model_dump()
+            state_dict["selected_plan"] = selected_plan.get('best_plan', None)
+            return state_dict
         
         return select_plan
     
@@ -206,17 +203,16 @@ Your response must be a valid JSON object with the following structure:
             Returns:
                 Dict: Updated state with the decision.
             """
-            problem = state['problem_description']
-            selected_plan = state['selected_plan']
+            problem = state.problem_description
+            selected_plan = state.selected_plan
             
             decision = decision_chain.invoke({
                 "problem_description": problem,
                 "selected_plan": selected_plan
             })
             
-            return {
-                **state,
-                "decision": decision.get('decision', 'continue')
-            }
+            state_dict = state.model_dump()
+            state_dict["decision"] = decision.get('decision', 'continue')
+            return state_dict
         
         return make_decision

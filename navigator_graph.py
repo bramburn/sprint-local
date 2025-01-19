@@ -44,7 +44,7 @@ class NavigatorGraph:
         # Conditional edges for decision-making
         self.graph.add_conditional_edges(
             "decision",
-            lambda x: x["memory"].get("decision", "terminate"),
+            lambda x: x.memory.get("decision", "terminate"),
             {
                 "refine": "reflection",
                 "switch": "plan_generation",
@@ -95,7 +95,7 @@ class NavigatorGraph:
         if self.memory_saver:
             await self.memory_saver.put(
                 {"thread_id": thread_id},
-                result.dict()
+                result.model_dump()
             )
         
         return {
