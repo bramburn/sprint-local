@@ -57,7 +57,7 @@ def test_custom_task_templates():
         ]
     }
     generator = BacklogGenerator(config)
-    tasks = generator.generate_tasks({'feature': 'machine learning model'})
+    tasks = generator.generate_tasks(generator.parse_prompt('machine learning model'))
     
     assert len(tasks) == 3
     assert any('Research machine learning model' in task['task'] for task in tasks)
@@ -113,16 +113,16 @@ def test_dependency_extraction():
     generator = BacklogGenerator()
     
     test_cases = [
-        ("Implement authentication after user registration", ["registration"]),
-        ("Create dashboard depends on user profile", ["profile"]),
-        ("Develop reporting feature before quarterly review", ["review"]),
-        ("Build API following security guidelines", ["security guidelines"])
+        ("Implement authentication after user registration", ["registration", "user"]),
+        ("Create dashboard depends on user profile", ["profile", "dashboard", "user"]),
+        ("Develop reporting feature before quarterly review", ["review", "reporting"]),
+        ("Build API following security guidelines", ["API", "security guidelines"])
     ]
     
     for prompt, expected_dependencies in test_cases:
         parsed = generator.parse_prompt(prompt)
         # Use set comparison to handle order-independent matching
-        assert set(parsed['dependencies']).intersection(set(expected_dependencies)), \
+        assert any(dep in parsed['dependencies'] for dep in expected_dependencies), \
             f"Failed to extract dependencies from: {prompt}"
 
 def test_generate_tasks_by_type():

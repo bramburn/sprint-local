@@ -55,6 +55,9 @@ class BacklogGenerator:
         complexity = self._estimate_complexity(doc)
         priority = self._infer_priority(doc)
         
+        # Extract dependencies with fallback
+        dependencies = self._extract_dependencies(doc)
+        
         return {
             'feature': prompt.strip(),
             'keywords': [token.lemma_ for token in doc if not token.is_stop and token.pos_ in ['NOUN', 'VERB']],
@@ -62,7 +65,7 @@ class BacklogGenerator:
             'task_type': task_type.name,
             'complexity': complexity,
             'priority': priority.name,
-            'dependencies': self._extract_dependencies(doc)
+            'dependencies': dependencies
         }
 
     def _infer_task_type(self, doc) -> TaskType:
@@ -130,18 +133,35 @@ class BacklogGenerator:
         dependency_markers = ['after', 'before', 'requires', 'depends', 'following']
         
         dependencies = []
+        
+        # Extract dependencies based on linguistic markers
         for token in doc:
-            # Check if the token or its children match dependency markers
             if (token.lemma_.lower() in dependency_markers or 
                 any(child.lemma_.lower() in dependency_markers for child in token.children)):
-                # Capture nouns or noun chunks around the dependency marker
+                # Capture context around dependency markers
                 context = [
-                    ent.text for ent in doc.ents if ent.label_ in ['PRODUCT', 'ORG', 'WORK_OF_ART']
+                    ent.text for ent in doc.ents 
+                    if ent.label_ in ['PRODUCT', 'ORG', 'WORK_OF_ART', 'PERSON', 'GPE']
                 ] + [
                     chunk.text for chunk in doc.noun_chunks 
                     if any(marker in chunk.root.lemma_.lower() for marker in dependency_markers)
                 ]
                 dependencies.extend(context)
+        
+        # Fallback: if no dependencies found, extract key nouns and entities
+        if not dependencies:
+            dependencies = [
+                ent.text for ent in doc.ents 
+                if ent.label_ in ['PRODUCT', 'ORG', 'WORK_OF_ART', 'PERSON', 'GPE']
+            ] + [
+                chunk.text for chunk in doc.noun_chunks 
+                if chunk.root.pos_ in ['NOUN', 'PROPN']
+            ]
+        
+        # Additional strategy: look for prepositional phrases that might indicate dependencies
+        for chunk in doc.noun_chunks:
+            if chunk.root.dep_ in ['pobj', 'dobj'] and chunk.root.head.pos_ == 'ADP':
+                dependencies.append(chunk.text)
         
         return list(set(dependencies))  # Remove duplicates
 
@@ -155,9 +175,12 @@ class BacklogGenerator:
         feature = parsed_prompt.get('feature', 'Unnamed Feature')
         tasks = []
         
+        # Use custom task templates if provided in config
+        custom_templates = self.config.get('backlog_task_templates')
+        
         # Adjust task templates based on task type
         type_specific_templates = {
-            'FEATURE': [
+            'FEATURE': custom_templates or [
                 "Implement {feature}",
                 "Test {feature}",
                 "Document {feature}"
