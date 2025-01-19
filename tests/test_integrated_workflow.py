@@ -1,101 +1,153 @@
 import pytest
-from navigator_graph import NavigatorGraph
-from driver_graph import DriverGraph
-from navigator_state import NavigatorState
-from driver_state import DriverState
-
-class IntegratedWorkflow:
-    """
-    Integrates the Navigator and Driver graphs into a unified workflow.
-    """
-    
-    def __init__(self):
-        self.navigator = NavigatorGraph()
-        self.driver = DriverGraph()
-    
-    def run(self, problem_description: dict) -> dict:
-        """Run the complete workflow from problem description to code implementation."""
-        # Initialize Navigator State
-        nav_state = NavigatorState(
-            problem_description=problem_description,
-            solution_plans=[],
-            selected_plan=None,
-            memory={}
-        )
-        
-        # Run Navigator to get plan
-        nav_result = self.navigator.run(nav_state)
-        
-        if not nav_result.selected_plan:
-            raise ValueError("Navigator failed to select a plan")
-        
-        # Initialize Driver State with selected plan
-        driver_state = DriverState(
-            plan=nav_result.selected_plan,
-            generated_code="",
-            test_results={},
-            memory={}
-        )
-        
-        # Run Driver to implement plan
-        driver_result = self.driver.run(driver_state)
-        
-        return {
-            "plan": nav_result.selected_plan,
-            "code": driver_result.generated_code,
-            "test_results": driver_result.test_results
-        }
+import asyncio
+from typing import Dict, Any
+from integrated_workflow import IntegratedWorkflow, run_workflow
+import os
+import tempfile
+import shutil
 
 @pytest.fixture
-def integrated_workflow():
-    """Create an IntegratedWorkflow instance for testing."""
-    return IntegratedWorkflow()
+def temp_storage_path():
+    """Create a temporary directory for storage during tests."""
+    temp_dir = tempfile.mkdtemp()
+    yield temp_dir
+    shutil.rmtree(temp_dir)
 
 @pytest.fixture
-def sample_problem():
-    """Provide a sample problem for testing."""
-    return {
-        "task": "Create a function to calculate the area of a circle",
-        "requirements": [
-            "Function should take radius as input",
-            "Return the area using pi*r^2",
-            "Handle invalid inputs (negative numbers)",
-            "Use proper type hints"
-        ],
-        "constraints": ["Must be implemented in Python"]
-    }
+def workflow(temp_storage_path):
+    """Create an IntegratedWorkflow instance with temporary storage."""
+    return IntegratedWorkflow(storage_path=temp_storage_path)
 
-def test_end_to_end_workflow(integrated_workflow, sample_problem):
-    """Test the complete workflow from problem to implementation."""
-    result = integrated_workflow.run(sample_problem)
+@pytest.mark.asyncio
+async def test_orchestrate_workflow_success(workflow):
+    """Test successful workflow orchestration."""
+    problem_description = "Create a simple calculator function"
+    result = await workflow.orchestrate_workflow(problem_description)
     
-    # Verify workflow output structure
-    assert "plan" in result
-    assert "code" in result
+    assert isinstance(result, dict)
+    assert "refined_problem" in result
+    assert "selected_plan" in result
+    assert "generated_code" in result
     assert "test_results" in result
-    
-    # Verify plan contents
-    assert isinstance(result["plan"], dict)
-    assert "steps" in result["plan"]
-    
-    # Verify code generation
-    assert result["code"] != ""
-    assert "def calculate_circle_area" in result["code"]
-    
-    # Verify test results
-    assert isinstance(result["test_results"], dict)
-    assert "status" in result["test_results"]
+    assert "error" not in result
 
-def test_error_handling(integrated_workflow):
-    """Test workflow handles invalid inputs gracefully."""
-    with pytest.raises(ValueError):
-        integrated_workflow.run({})  # Empty problem description
-
-def test_plan_to_code_transition(integrated_workflow, sample_problem):
-    """Test that the selected plan is correctly passed to the driver."""
-    result = integrated_workflow.run(sample_problem)
+@pytest.mark.asyncio
+async def test_orchestrate_workflow_with_thread_id(workflow):
+    """Test workflow orchestration with a specific thread ID."""
+    problem_description = "Create a todo list app"
+    thread_id = "test_thread_1"
+    result = await workflow.orchestrate_workflow(problem_description, thread_id)
     
-    # Verify plan steps are reflected in code
-    for step in result["plan"]["steps"]:
-        if step["type"] == "code_generation":
-            assert step["details"]["function_name"] in result["code"]
+    assert isinstance(result, dict)
+    assert "error" not in result
+    
+    # Verify state persistence
+    state = await workflow.get_workflow_state(thread_id)
+    assert state is not None
+    assert isinstance(state, dict)
+
+@pytest.mark.asyncio
+async def test_workflow_state_management(workflow):
+    """Test workflow state management functions."""
+    thread_id = "test_thread_2"
+    
+    # Initial state should be None
+    initial_state = await workflow.get_workflow_state(thread_id)
+    assert initial_state is None
+    
+    # Run workflow to create state
+    result = await workflow.orchestrate_workflow("Create a REST API", thread_id)
+    assert "error" not in result
+    
+    # Verify state exists
+    state = await workflow.get_workflow_state(thread_id)
+    assert state is not None
+    
+    # Clear specific thread state
+    await workflow.clear_workflow_state(thread_id)
+    cleared_state = await workflow.get_workflow_state(thread_id)
+    assert cleared_state is None
+    
+    # Clear all states
+    await workflow.clear_workflow_state()
+    all_states = await workflow.memory_saver.list()
+    assert len(all_states) == 0
+
+@pytest.mark.asyncio
+async def test_error_handling(workflow):
+    """Test error handling in workflow orchestration."""
+    # Test with invalid input
+    result = await workflow.orchestrate_workflow("")
+    assert "error" in result
+    assert result["status"] == "failed"
+    
+    # Test with None input
+    result = await workflow.orchestrate_workflow(None)  # type: ignore
+    assert "error" in result
+    assert result["status"] == "failed"
+
+def test_run_workflow_sync():
+    """Test synchronous workflow execution."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        result = run_workflow(
+            problem_description="Create a simple web server",
+            thread_id="test_thread_3",
+            storage_path=temp_dir
+        )
+        
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert "refined_problem" in result
+        assert "selected_plan" in result
+        assert "generated_code" in result
+
+@pytest.mark.asyncio
+async def test_concurrent_workflows(workflow):
+    """Test running multiple workflows concurrently."""
+    problems = [
+        "Create a sorting algorithm",
+        "Build a login system",
+        "Implement a cache mechanism"
+    ]
+    
+    async def run_workflow(desc: str, tid: str) -> Dict[str, Any]:
+        return await workflow.orchestrate_workflow(desc, tid)
+    
+    # Run workflows concurrently
+    tasks = [
+        run_workflow(desc, f"thread_{i}")
+        for i, desc in enumerate(problems)
+    ]
+    
+    results = await asyncio.gather(*tasks)
+    
+    # Verify all results
+    for result in results:
+        assert isinstance(result, dict)
+        assert "error" not in result
+        assert "refined_problem" in result
+        assert "selected_plan" in result
+        assert "generated_code" in result
+
+@pytest.mark.asyncio
+async def test_workflow_recovery(workflow):
+    """Test workflow recovery after failure."""
+    thread_id = "recovery_test"
+    
+    # First run - simulate failure
+    result1 = await workflow.orchestrate_workflow(
+        "Create a failing test",
+        thread_id
+    )
+    assert "error" in result1
+    assert "last_checkpoint" in result1
+    
+    # Second run - should recover from checkpoint
+    result2 = await workflow.orchestrate_workflow(
+        "Create a passing test",
+        thread_id
+    )
+    assert "error" not in result2
+    assert "refined_problem" in result2
+    assert "selected_plan" in result2
+    assert "generated_code" in result2

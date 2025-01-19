@@ -22,7 +22,18 @@ class NavigatorNodes:
             Callable: A node function for reflection.
         """
         reflection_prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are an expert problem solver. Analyze the following problem description and generate deep insights and potential edge cases."),
+            ("system", """You are an expert problem solver. Analyze the following problem description and generate deep insights and potential edge cases.
+
+Your response must be a valid JSON object with the following structure:
+{{
+    "insights": [
+        {{
+            "category": "string",
+            "description": "string",
+            "edge_cases": ["string"]
+        }}
+    ]
+}}"""),
             ("human", "Problem Description: {problem_description}")
         ])
         
@@ -62,7 +73,20 @@ class NavigatorNodes:
             Callable: A node function for generating solution plans.
         """
         plans_prompt = ChatPromptTemplate.from_messages([
-            ("system", "Generate multiple diverse solution plans for the given problem. Each plan should be unique and address different aspects of the problem."),
+            ("system", """Generate multiple diverse solution plans for the given problem. Each plan should be unique and address different aspects of the problem.
+
+Your response must be a valid JSON object with the following structure:
+{{
+    "plans": [
+        {{
+            "title": "string",
+            "description": "string",
+            "steps": ["string"],
+            "advantages": ["string"],
+            "disadvantages": ["string"]
+        }}
+    ]
+}}"""),
             ("human", "Problem Description: {problem_description}\nReflection Insights: {reflection_insights}")
         ])
         
@@ -105,7 +129,19 @@ class NavigatorNodes:
             Callable: A node function for selecting the best plan.
         """
         selection_prompt = ChatPromptTemplate.from_messages([
-            ("system", "Evaluate the generated solution plans and select the most promising one based on effectiveness, feasibility, and potential impact."),
+            ("system", """Evaluate the generated solution plans and select the most promising one based on effectiveness, feasibility, and potential impact.
+
+Your response must be a valid JSON object with the following structure:
+{{
+    "best_plan": {{
+        "title": "string",
+        "description": "string",
+        "steps": ["string"],
+        "advantages": ["string"],
+        "disadvantages": ["string"]
+    }},
+    "reasoning": "string"
+}}"""),
             ("human", "Problem Description: {problem_description}\nSolution Plans: {solution_plans}")
         ])
         
@@ -148,7 +184,13 @@ class NavigatorNodes:
             Callable: A node function for making decisions.
         """
         decision_prompt = ChatPromptTemplate.from_messages([
-            ("system", "Decide whether to continue with the current plan, refine it, switch to another plan, or terminate the process."),
+            ("system", """Decide whether to continue with the current plan, refine it, switch to another plan, or terminate the process.
+
+Your response must be a valid JSON object with the following structure:
+{{
+    "decision": "string",  // One of: "continue", "refine", "switch", "terminate"
+    "reasoning": "string"
+}}"""),
             ("human", "Problem Description: {problem_description}\nSelected Plan: {selected_plan}")
         ])
         

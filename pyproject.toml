@@ -8,6 +8,7 @@ readme = "README.md"
 
 [tool.poetry.scripts]
 test = "pytest"
+sprint = "cli_interface:cli"
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -33,12 +34,12 @@ langgraph = "^0.2.64"
 pydantic = "^2.10.5"
 langchain-core = "^0.3.30"
 aiofiles = "^24.1.0"
-
+click = "^8.1.7"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
 mypy = "^1.10.0"
-
+pytest-asyncio = "^0.23.5"
 
 [build-system]
 requires = ["poetry-core"]

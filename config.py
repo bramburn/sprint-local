@@ -29,6 +29,15 @@ class Config:
         self.LLM_MODEL_NAME = os.getenv('LLM_MODEL_NAME', 'gpt-4o-mini')
         self.LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')
 
+        # Backlog generation configuration
+        self.BACKLOG_TASK_TEMPLATES = [
+            "Implement {feature}",
+            "Test {feature}",
+            "Document {feature}",
+            "Design {feature} Architecture",
+            "Create Acceptance Criteria for {feature}"
+        ]
+
     def _validate_api_key(self):
         """
         Validate the OpenAI API key from environment variables.
