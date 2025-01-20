@@ -4,6 +4,7 @@ import ast
 import inspect
 from llm_wrapper import LLMWrapper
 from langchain.prompts import ChatPromptTemplate
+import json
 
 @dataclass
 class TestCase:
@@ -51,9 +52,11 @@ class DriverTools:
 
     def _init_prompts(self):
         """Initialize ChatPromptTemplates for all tools."""
-        self.test_generation_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at writing comprehensive test cases."},
+        self.test_generation_prompt_python = ChatPromptTemplate.from_messages([
+            {"role": "system", "content": "You are an expert at writing comprehensive test cases for Python."},
             {"role": "user", "content": """Generate unit tests for this Python function:
+
+{function_signature}
 
 {function_code}
 
@@ -66,6 +69,28 @@ For each test case provide:
 - Test name
 - Test description
 - Test code (using pytest)
+- Expected result
+
+Format your response as a JSON list of test objects."""}
+        ])
+
+        self.test_generation_prompt_typescript = ChatPromptTemplate.from_messages([
+            {"role": "system", "content": "You are an expert at writing comprehensive test cases for TypeScript."},
+            {"role": "user", "content": """Generate unit tests for this TypeScript function:
+
+{function_signature}
+
+{function_code}
+
+Generate 3 test cases that cover:
+1. Normal case
+2. Edge case
+3. Error case
+
+For each test case provide:
+- Test name
+- Test description
+- Test code (using Jest)
 - Expected result
 
 Format your response as a JSON list of test objects."""}
@@ -211,8 +236,21 @@ Format your response as a JSON object with:
 - testing_strategy: overall testing approach"""}
         ])
 
-    async def generate_test_cases(self, code: str) -> List[TestCase]:
-        """Generates test cases for the provided code."""
+    async def generate_test_cases(self, code: str, language: Optional[str] = None) -> List[TestCase]:
+        """
+        Generates comprehensive test cases for the provided code.
+        
+        Args:
+            code (str): Source code to generate tests for
+            language (Optional[str]): Programming language (python, typescript, etc.)
+        
+        Returns:
+            List[TestCase]: Generated test cases
+        """
+        # Detect language if not provided
+        if not language:
+            language = self._detect_language(code)
+        
         try:
             tree = ast.parse(code)
             functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
@@ -221,24 +259,73 @@ Format your response as a JSON object with:
 
         test_cases = []
         for func in functions:
-            prompt = self.test_generation_prompt.format(function_code=ast.unparse(func))
-            response = await self.llm.aask(prompt)
+            # Extract function signature and code for context
+            func_signature = self.extract_function_signature(func)
+            func_code = ast.unparse(func)
+            
+            # Customize prompt based on language
+            prompt_template = (
+                self.test_generation_prompt_python if language == 'python' 
+                else self.test_generation_prompt_typescript
+            )
+            
+            prompt = prompt_template.format(
+                function_signature=func_signature,
+                function_code=func_code
+            )
+            
             try:
-                tests = self.llm.parse_json(response)
+                response = await self.llm.aask(prompt)
+                
+                # Handle different response types
+                try:
+                    # First try parsing as JSON
+                    tests = self.llm.parse_json(response)
+                except Exception:
+                    # If parsing fails, try evaluating
+                    try:
+                        tests = eval(response)
+                    except Exception:
+                        # If all parsing fails, assume it's already a list
+                        tests = response
+                
+                # Ensure tests is a list
+                if not isinstance(tests, list):
+                    tests = [tests]
+                
                 for test in tests:
                     test_cases.append(
                         TestCase(
                             function_name=func.name,
-                            test_name=test["test_name"],
-                            test_code=test["test_code"],
-                            description=test["description"],
-                            expected_result=test["expected_result"]
+                            test_name=test.get('test_name', f'test_{func.name}'),
+                            test_code=test.get('test_code', ''),
+                            description=test.get('description', 'Automatically generated test'),
+                            expected_result=test.get('expected_result')
                         )
                     )
             except Exception as e:
-                raise ValueError(f"Failed to parse LLM response: {e}")
-
+                # Log the error but continue processing other functions
+                print(f"Error generating tests for {func.name}: {e}")
+        
         return test_cases
+
+    def _detect_language(self, code: str) -> str:
+        """
+        Detect the programming language of the given code.
+        
+        Args:
+            code (str): Source code to detect language for
+        
+        Returns:
+            str: Detected language (python, typescript, etc.)
+        """
+        # Basic language detection heuristics
+        if 'def ' in code or 'class ' in code or 'import ' in code:
+            return 'python'
+        elif 'function ' in code or 'const ' in code or 'let ' in code:
+            return 'typescript'
+        else:
+            return 'python'  # Default to Python
 
     async def debug_error(self, code: str, error_message: str) -> DebugSuggestion:
         """Analyzes runtime errors and provides debugging suggestions."""

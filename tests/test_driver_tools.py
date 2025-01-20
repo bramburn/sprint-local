@@ -5,13 +5,24 @@ from tools.driver_tools import (
     DriverTools, TestCase, DebugSuggestion, PerformanceMetrics,
     CodeReview, RefactoringPlan
 )
+from typing import Optional
+import json
 
 @pytest.fixture
 def mock_llm():
-    llm = Mock()
-    llm.aask = AsyncMock()
-    llm.parse_json = Mock()
-    return llm
+    class MockLLM:
+        def __init__(self):
+            self.test_response = [{"test_name": "test_add_normal", "test_code": "def test_add_normal(): pass", "description": "Test", "expected_result": 5}]
+        
+        async def aask(self, prompt):
+            return self.test_response
+        
+        def parse_json(self, response):
+            if isinstance(response, list):
+                return response
+            return json.loads(response)
+    
+    return MockLLM()
 
 @pytest.fixture
 def driver_tools(mock_llm):
@@ -28,17 +39,7 @@ def add_numbers(a: int, b: int) -> int:
 @pytest.mark.asyncio
 async def test_generate_test_cases(driver_tools, mock_llm, sample_function):
     # Setup mock response
-    mock_llm.parse_json.return_value = [{
-        "test_name": "test_add_normal",
-        "test_code": "def test_add_normal():\n    assert add_numbers(2, 3) == 5",
-        "description": "Test normal addition",
-        "expected_result": 5
-    }, {
-        "test_name": "test_add_negative",
-        "test_code": "def test_add_negative():\n    assert add_numbers(-1, 1) == 0",
-        "description": "Test with negative number",
-        "expected_result": 0
-    }]
+    mock_llm.test_response = [{"test_name": "test_add_normal", "test_code": "def test_add_normal():\n    assert add_numbers(2, 3) == 5", "description": "Test normal addition", "expected_result": 5}, {"test_name": "test_add_negative", "test_code": "def test_add_negative():\n    assert add_numbers(-1, 1) == 0", "description": "Test with negative number", "expected_result": 0}]
     
     # Test the method
     result = await driver_tools.generate_test_cases(sample_function)
@@ -420,4 +421,70 @@ async def test_suggest_tests_invalid_response(driver_tools, mock_llm):
     with pytest.raises(ValueError) as exc_info:
         await driver_tools.suggest_tests("def test(): pass")
     
-    assert "Failed to parse LLM response" in str(exc_info.value) 
+    assert "Failed to parse LLM response" in str(exc_info.value)
+
+def test_detect_language(driver_tools):
+    # Test Python language detection
+    python_code = """
+def add_numbers(a, b):
+    return a + b
+"""
+    assert driver_tools._detect_language(python_code) == 'python'
+
+    # Test TypeScript language detection
+    typescript_code = """
+function addNumbers(a: number, b: number): number {
+    return a + b;
+}
+"""
+    assert driver_tools._detect_language(typescript_code) == 'typescript'
+
+    # Test default language detection
+    default_code = "print('Hello, World!')"
+    assert driver_tools._detect_language(default_code) == 'python'
+
+@pytest.mark.asyncio
+async def test_generate_test_cases_typescript(driver_tools, mock_llm):
+    # Sample TypeScript function
+    typescript_code = """
+function addNumbers(a: number, b: number): number {
+    return a + b;
+}
+"""
+    
+    # Setup mock response for TypeScript
+    mock_llm.test_response = [{"test_name": "test_add_numbers_normal", "test_code": "test('adds two numbers', () => {\n    expect(addNumbers(2, 3)).toBe(5);\n});", "description": "Test normal addition in TypeScript", "expected_result": 5}]
+    
+    # Test the method with explicit language
+    result = await driver_tools.generate_test_cases(typescript_code, language='typescript')
+    
+    # Verify the result
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert isinstance(result[0], TestCase)
+    assert result[0].function_name == "addNumbers"
+    assert result[0].test_name == "test_add_numbers_normal"
+    assert "expect(addNumbers(2, 3)).toBe(5)" in result[0].test_code
+
+@pytest.mark.asyncio
+async def test_generate_test_cases_language_auto_detect(driver_tools, mock_llm):
+    # Sample TypeScript function
+    typescript_code = """
+function multiplyNumbers(a: number, b: number): number {
+    return a * b;
+}
+"""
+    
+    # Setup mock response for TypeScript
+    mock_llm.test_response = [{"test_name": "test_multiply_numbers", "test_code": "test('multiplies two numbers', () => {\n    expect(multiplyNumbers(2, 3)).toBe(6);\n});", "description": "Test multiplication in TypeScript", "expected_result": 6}]
+    
+    # Test the method with auto language detection
+    result = await driver_tools.generate_test_cases(typescript_code)
+    
+    # Verify the result
+    assert isinstance(result, list)
+    assert len(result) == 1
+    assert isinstance(result[0], TestCase)
+    assert result[0].function_name == "multiplyNumbers"
+    assert result[0].test_name == "test_multiply_numbers"
+    assert "expect(multiplyNumbers(2, 3)).toBe(6)" in result[0].test_code

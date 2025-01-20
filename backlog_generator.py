@@ -224,6 +224,12 @@ class BacklogGenerator:
                 'priority': parsed_prompt.get('priority', 'MEDIUM'),
                 'complexity': parsed_prompt.get('complexity', 0.5),
                 'dependencies': parsed_prompt.get('dependencies', []),
+                'files': self._generate_files_section([{
+                    'file_name': feature,
+                    'purpose': 'Description of the file',
+                    'contents': 'Content of the file',
+                    'relationships': []
+                }]),
                 'estimated_effort': self._estimate_task_effort(parsed_prompt)
             })
         
@@ -253,39 +259,169 @@ class BacklogGenerator:
             'estimated_hours': round(base_effort.get('MEDIUM', 3) * complexity * 4)
         }
 
-    def format_backlog(self, tasks: List[Dict[str, Any]]) -> str:
+    def format_backlog(self, tasks: List[Dict[str, Any]], additional_sections: Dict[str, Any] = None) -> str:
         """
-        Format tasks into a comprehensive markdown backlog.
+        Format tasks into a comprehensive markdown backlog following the specified template.
         
         :param tasks: List of task dictionaries
+        :param additional_sections: Dictionary containing additional sections like Introduction, Assumptions, etc.
         :return: Formatted backlog markdown
         """
         backlog_lines = ["# Backlog\n"]
         
-        for task in tasks:
-            backlog_lines.append(f"## {task['task']}")
-            backlog_lines.append(f"- **Category**: {task['category']}")
-            backlog_lines.append(f"- **Feature**: {task['feature']}")
-            backlog_lines.append(f"- **Type**: {task['type']}")
-            backlog_lines.append(f"- **Priority**: {task['priority']}")
-            backlog_lines.append(f"- **Complexity**: {task['complexity']:.2f}")
-            
-            if task['dependencies']:
-                backlog_lines.append(f"- **Dependencies**: {', '.join(task['dependencies'])}")
-            
-            backlog_lines.append(f"- **Estimated Effort**:")
-            backlog_lines.append(f"  - Story Points: {task['estimated_effort']['story_points']}")
-            backlog_lines.append(f"  - Estimated Hours: {task['estimated_effort']['estimated_hours']}\n")
+        # Introduction Section
+        if additional_sections and "Introduction" in additional_sections:
+            backlog_lines.append("## Introduction")
+            backlog_lines.append(f"{additional_sections['Introduction']}\n")
+        
+        # User Stories Section
+        backlog_lines.append("## User Stories")
+        for idx, task in enumerate(tasks, start=1):
+            backlog_lines.append(f"* **User Story {idx}**: {task['task']}")
+            backlog_lines.append(f"  + **Description**: {task['task']}")
+            backlog_lines.append(f"  + **Actions to Undertake**:")
+            for action in task['dependencies']:
+                backlog_lines.append(f"    - {action}")
+            backlog_lines.append(f"  + **References between Files**: {', '.join(task['dependencies'])}")
+            backlog_lines.append(f"  + **Estimated Effort**:")
+            backlog_lines.append(f"    - Story Points: {task['estimated_effort']['story_points']}")
+            backlog_lines.append(f"    - Estimated Hours: {task['estimated_effort']['estimated_hours']}\n")
+        
+        # List of Files being Created Section
+        if additional_sections and "List of Files being Created" in additional_sections:
+            backlog_lines.append("## List of Files being Created")
+            for idx, file in enumerate(additional_sections["List of Files being Created"], start=1):
+                backlog_lines.append(f"* **File {idx}**: {file['file_name']}")
+                backlog_lines.append(f"  + **Purpose**: {file['purpose']}")
+                backlog_lines.append(f"  + **Contents**: {file['contents']}")
+                backlog_lines.append(f"  + **Relationships**: {', '.join(file['relationships'])}\n")
+        
+        # References between Files Section (if not covered in User Stories)
+        if additional_sections and "References between Files" in additional_sections:
+            backlog_lines.append("## References between Files")
+            for ref in additional_sections["References between Files"]:
+                backlog_lines.append(f"* {ref}\n")
+        
+        # Acceptance Criteria Section (if not covered in User Stories)
+        if additional_sections and "Acceptance Criteria" in additional_sections:
+            backlog_lines.append("## Acceptance Criteria")
+            for criterion in additional_sections["Acceptance Criteria"]:
+                backlog_lines.append(f"* {criterion}\n")
+        
+        # Testing Plan Section
+        if additional_sections and "Testing Plan" in additional_sections:
+            backlog_lines.append("## Testing Plan")
+            backlog_lines.append(f"{additional_sections['Testing Plan']}\n")
+        
+        # Assumptions and Dependencies Section
+        if additional_sections and "Assumptions and Dependencies" in additional_sections:
+            backlog_lines.append("## Assumptions and Dependencies")
+            for assumption in additional_sections["Assumptions and Dependencies"]:
+                backlog_lines.append(f"* {assumption}\n")
+        
+        # Non-Functional Requirements Section
+        if additional_sections and "Non-Functional Requirements" in additional_sections:
+            backlog_lines.append("## Non-Functional Requirements")
+            for req in additional_sections["Non-Functional Requirements"]:
+                backlog_lines.append(f"* {req}\n")
+        
+        # Conclusion Section
+        if additional_sections and "Conclusion" in additional_sections:
+            backlog_lines.append("## Conclusion")
+            backlog_lines.append(f"{additional_sections['Conclusion']}\n")
         
         return "\n".join(backlog_lines)
 
     def generate_backlog(self, prompt: str) -> str:
         """
-        Convenience method to generate a comprehensive backlog from a prompt.
+        Generate a comprehensive backlog from a prompt, including user stories, actions, and other details.
         
         :param prompt: Input prompt describing the feature or task
         :return: Formatted backlog
         """
         parsed_prompt = self.parse_prompt(prompt)
         tasks = self.generate_tasks(parsed_prompt)
-        return self.format_backlog(tasks)
+        additional_sections = self.generate_additional_sections(parsed_prompt, tasks)
+        backlog = self.format_backlog(tasks, additional_sections)
+        return backlog
+
+    def _generate_user_stories(self, parsed_prompt) -> str:
+        # Generate user stories based on the parsed prompt
+        return "* **User Story 1**: [Brief description of the user story]\n" \
+               "    + **Description**: [Detailed description of the user story]\n" \
+               "    + **Actions to Undertake**: [List of specific tasks to complete]\n" \
+               "    + **References between Files**: [List of relationships or dependencies between files]\n" \
+               "    + **Acceptance Criteria**: [Clear and measurable criteria for acceptance]\n" \
+               "    + **Testing Plan**: [Description of the testing approach and methodology]\n"
+
+    def _generate_actions(self, parsed_prompt) -> str:
+        # Generate actions based on the parsed prompt
+        return "- Action 1: [Description of action]\n- Action 2: [Description of action]\n"
+
+    def _generate_references(self, parsed_prompt) -> str:
+        # Generate references between files
+        return "- Reference 1: [Description of reference]\n"
+
+    def _generate_files(self, parsed_prompt) -> str:
+        # Generate list of files being created
+        return "* **File 1**: [File name and description]\n" \
+               "    + **Purpose**: [Brief description of the file's purpose]\n" \
+               "    + **Contents**: [Detailed description of the file's contents]\n" \
+               "    + **Relationships**: [List of relationships or dependencies with other files]\n"
+
+    def _generate_acceptance_criteria(self, parsed_prompt) -> str:
+        # Generate acceptance criteria
+        return "- Acceptance Criterion 1: [Description]\n"
+
+    def _generate_testing_plan(self, parsed_prompt) -> str:
+        # Generate testing plan
+        return "* **Test Case 1**: [Brief description of the test case]\n" \
+               "    + **Test Data**: [Description of the test data used]\n" \
+               "    + **Expected Result**: [Description of the expected result]\n" \
+               "    + **Testing Tool**: [Description of the testing tool used]\n"
+
+    def _generate_assumptions(self, parsed_prompt) -> str:
+        # Generate assumptions and dependencies
+        return "- Assumption 1: [Description]\n"
+
+    def _generate_non_functional_requirements(self, parsed_prompt) -> str:
+        # Generate non-functional requirements
+        return "- Non-Functional Requirement 1: [Description]\n"
+
+    def generate_additional_sections(self, parsed_prompt: Dict[str, Any], tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Generate additional sections required for the backlog.
+        
+        :param parsed_prompt: Parsed prompt dictionary
+        :param tasks: List of generated tasks
+        :return: Dictionary containing additional sections
+        """
+        return {
+            "Introduction": "This backlog outlines the development plan for the project based on the provided requirements.",
+            "List of Files being Created": self._generate_files_section(tasks),
+            "Assumptions and Dependencies": [
+                "Assumption 1: All necessary libraries are available.",
+                "Dependency 1: Integration with existing authentication system."
+            ],
+            "Non-Functional Requirements": [
+                "Performance: The system should handle up to 10,000 concurrent users.",
+                "Security: Implement OAuth2 for authentication."
+            ],
+            "Conclusion": "This backlog serves as a comprehensive guide to implement the required features effectively."
+        }
+
+    def _generate_files_section(self, tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Generate the list of files being created based on tasks.
+        
+        :param tasks: List of generated tasks
+        :return: List of file dictionaries
+        """
+        files = []
+        file_set = set()
+        for task in tasks:
+            for file in task.get('files', []):
+                if file['file_name'] not in file_set:
+                    files.append(file)
+                    file_set.add(file['file_name'])
+        return files
