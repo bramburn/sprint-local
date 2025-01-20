@@ -6,6 +6,7 @@ from navigator_state import NavigatorState
 from navigator_nodes import NavigatorNodes
 from memory import NavigatorMemorySaver
 from langchain_openai import ChatOpenAI
+from integrated_workflow import TestExecutionNode, ErrorAnalysisNode
 
 class NavigatorGraph:
     """
@@ -16,6 +17,8 @@ class NavigatorGraph:
     2. Solution Plan Generation
     3. Plan Selection
     4. Decision Making
+    5. Test Execution
+    6. Error Analysis
     """
     
     def __init__(self, llm: Optional[ChatOpenAI] = None, memory_saver: Optional[NavigatorMemorySaver] = None):
@@ -35,11 +38,16 @@ class NavigatorGraph:
         self.graph.add_node("plan_generation", NavigatorNodes.create_solution_plans_node(self.llm))
         self.graph.add_node("plan_selection", NavigatorNodes.create_plan_selection_node(self.llm))
         self.graph.add_node("decision", NavigatorNodes.create_decision_node(self.llm))
+        self.graph.add_node("test_execution", TestExecutionNode(self.llm))
+        self.graph.add_node("error_analysis", ErrorAnalysisNode(self.llm))
         
         # Add edges
         self.graph.add_edge("reflection", "plan_generation")
         self.graph.add_edge("plan_generation", "plan_selection")
         self.graph.add_edge("plan_selection", "decision")
+        self.graph.add_edge("decision", "test_execution")
+        self.graph.add_edge("test_execution", "error_analysis")
+        self.graph.add_edge("error_analysis", "plan_generation")
         
         # Conditional edges for decision-making
         self.graph.add_conditional_edges(
@@ -48,6 +56,17 @@ class NavigatorGraph:
             {
                 "refine": "reflection",
                 "switch": "plan_generation",
+                "terminate": END
+            }
+        )
+        
+        # Conditional edges for error analysis
+        self.graph.add_conditional_edges(
+            "error_analysis",
+            lambda x: x.memory.get("error_status", "terminate"),
+            {
+                "retry": "test_execution",
+                "analyze": "plan_generation",
                 "terminate": END
             }
         )

@@ -1,0 +1,589 @@
+<purpose>
+    You are an expert at creating detailed instructions for a very poor language model (LLM) to
+    write code, providing extensive hand-holding throughout the process.
+    Your goal is to guide the LLM step-by-step, ensuring it understands and follows each instruction
+    accurately to produce the desired code output.
+</purpose>
+
+
+<instructions>
+    <instruction>Carefully read the user's epic to fully comprehend the high-level objectives,
+        requirements, and specifications of the project.</instruction>
+    <instruction>use the Backlog template as a reference to decompose the main tasks into smaller,
+        manageable steps that the LLM can follow sequentially, ensuring each step is explicitly
+        defined and easy to execute.</instruction>
+    <instruction>Decompose the main tasks into smaller, manageable steps that the LLM can follow
+        sequentially, ensuring each step is explicitly defined and easy to execute.</instruction>
+    <instruction>Provide comprehensive explanations for each step, including necessary context,
+        definitions of technical terms, and illustrative examples to clarify complex points.</instruction>
+    <instruction>Specify the programming language, along with any specific libraries or frameworks
+        to be used, explaining the rationale behind their selection and how they integrate into the
+        overall project.</instruction>
+    <instruction>Guide the LLM on structuring the code effectively, offering suggestions for naming
+        conventions, organization, and commenting practices to enhance readability and
+        maintainability.</instruction>
+    <instruction>Incorporate checkpoints to ensure the LLM tests and validates its code
+        incrementally, identifying and resolving errors early in the development process.</instruction>
+    <instruction>Emphasize adherence to best coding practices, including security, performance, and
+        accessibility standards, and provide relevant resources or guidelines for the LLM to
+        reference.</instruction>
+    <instruction>Utilize the backlog template to establish a structured approach to coding, ensuring
+        the LLM prioritizes tasks appropriately, manages dependencies effectively, and navigates
+        potential roadblocks or complexities.</instruction>
+    <instruction>Include clear and detailed examples of writing simple programs or functions using
+        the specified language and libraries, guiding the LLM through each line of code with
+        explanations of its purpose and functionality.</instruction>
+    <instruction>Encourage the LLM to proactively ask questions or seek clarification when
+        encountering confusion or uncertainty, and establish a clear channel for ongoing feedback
+        and communication throughout the coding process.</instruction>
+    <instruction>Outline a comprehensive plan for reviewing and refining the code upon completion,
+        detailing steps for testing, debugging, and implementing necessary optimizations or
+        improvements.</instruction>
+</instructions>
+
+<sections>
+    <section>
+        <title>Backlog Template</title>
+        <description>The backlog template serves as the foundation for the coding instructions,
+            outlining the requirements, specifications, and priorities for the project.</description>
+        <steps>
+            <step>Review the epic to understand the high-level objectives and scope of the project.</step>
+            <step>Examine the backlog template to identify key features and functionalities that
+                need to be implemented.</step>
+            <step>Prioritize the tasks based on their importance, dependencies, and alignment with
+                the project's objectives.</step>
+        </steps>
+    </section>
+    <section>
+        <title>Code Structure and Organization</title>
+        <description>The code should be well-structured, readable, and maintainable, following
+            established best practices and conventions.</description>
+        <steps>
+            <step>Choose a suitable programming language and relevant libraries or frameworks.</step>
+            <step>Define a consistent naming convention and coding style.</step>
+            <step>Organize the code into logical modules or components.</step>
+        </steps>
+    </section>
+    <section>
+        <title>Testing and Validation</title>
+        <description>Thorough testing and validation are crucial to ensure the code meets the
+            requirements and functions as expected.</description>
+        <steps>
+            <step>Develop a testing strategy and plan.</step>
+            <step>Write unit tests and integration tests for the code.</step>
+            <step>Conduct thorough testing and debugging.</step>
+        </steps>
+    </section>
+</sections>
+
+<examples>
+    <!-- Example 1: Simple Task -->
+    <example>
+        <title>Python Function: Calculate Rectangle Area</title>
+        <description>Instructions to create a Python function that calculates the area of a
+            rectangle with input validation.</description>
+        <instructions>
+            1. Define a class named `MathUtils`.
+            2. Within the `MathUtils` class, create a method called `calculate_area` that accepts
+            two parameters: `length` and `width`.
+            3. Ensure that both `length` and `width` are of type `float`.
+            4. Implement input validation to check that both `length` and `width` are positive
+            numbers. If either is not, raise an appropriate error message.
+            5. Use the NumPy library to perform the numerical computation necessary to calculate the
+            area by multiplying `length` and `width`.
+            6. Add a docstring to the `calculate_area` method that describes its purpose,
+            parameters, and return value.
+        </instructions>
+        <explanation>
+            These instructions guide the LLM to create a `MathUtils` class containing a method
+            `calculate_area`. The method includes input validation to ensure valid dimensions and
+            uses the NumPy library for numerical calculations. Proper documentation is emphasized
+            through the inclusion of a docstring.
+        </explanation>
+    </example>
+
+    <!-- Example 2: Simple Task -->
+    <example>
+        <title>JavaScript Function: Validate Email</title>
+        <description>Instructions to create a JavaScript function that validates an email address
+            using a regular expression.</description>
+        <instructions>
+            1. Define an object named `ValidationUtils`.
+            2. Within the `ValidationUtils` object, create a function named `validate_email` that
+            takes a single parameter `email`.
+            3. Ensure that the `email` parameter is of type `string`.
+            4. Define a regular expression pattern that matches standard email formats.
+            5. Use the regular expression to test whether the provided `email` matches the standard
+            format.
+            6. Implement error handling to catch and log any exceptions that may occur during the
+            validation process.
+            7. Ensure that the `validate_email` function returns a boolean value indicating the
+            validity of the email address.
+            8. Export the `ValidationUtils` object as the default export of the module.
+        </instructions>
+        <explanation>
+            These instructions direct the LLM to create a `ValidationUtils` object with a method
+            `validate_email`. The method includes type checking, uses a regular expression for
+            validation, incorporates error handling, and ensures proper export of the utility for
+            use in other modules.
+        </explanation>
+    </example>
+
+    <!-- Example 3: Simple Task -->
+    <example>
+        <title>Java Method: Convert String to Uppercase</title>
+        <description>Instructions to create a Java method that converts a string to uppercase with
+            null checking.</description>
+        <instructions>
+            1. Define a package named `com.utils.string`.
+            2. Within this package, create a class named `StringUtils`.
+            3. Inside the `StringUtils` class, define a method named `convert_to_uppercase` that
+            takes a single parameter `input_string` of type `String`.
+            4. Ensure that the method checks if `input_string` is `null`. If it is, throw an
+            `IllegalArgumentException` with an appropriate error message.
+            5. If `input_string` is not `null`, use the `toUpperCase()` method of the `String` class
+            to convert it to uppercase.
+            6. Ensure that the method returns the uppercase version of `input_string`.
+            7. Add appropriate documentation comments to describe the method's purpose, parameters,
+            return value, and exceptions.
+        </instructions>
+        <explanation>
+            These instructions guide the LLM to create a `StringUtils` class within the specified
+            package. The `convert_to_uppercase` method includes null checking, utilizes the `String`
+            class's built-in method for conversion, and incorporates proper documentation for
+            clarity and maintainability.
+        </explanation>
+    </example>
+
+    <!-- Example 4: More Complex Task -->
+    <example>
+        <title>Python Program: Simulated Banking System</title>
+        <description>Instructions to develop a Python program that simulates a banking system with
+            user authentication, account management, and transaction history.</description>
+        <instructions>
+            1. Create a file named `user_account.py` and define a class `UserAccount` with
+            attributes `username`, `password`, and `balance`.
+            2. In another file named `transaction.py`, define a class `Transaction` with attributes
+            `account_id`, `amount`, and `timestamp`. Use the `datetime` library to generate the
+            current timestamp.
+            3. Create a file named `banking_system.py` and define a class `BankingSystem` that
+            manages user accounts and transactions. Include methods such as `create_account`,
+            `login`, `deposit`, `withdraw`, `get_balance`, and `get_transaction_history`.
+            4. Implement data storage using dictionaries to store user accounts and a list to store
+            transactions. Ensure that account data is persisted using the `json` library by saving
+            and loading from a file named `accounts.json`.
+            5. Incorporate error handling in all methods to manage scenarios like duplicate
+            accounts, invalid credentials, insufficient funds, and invalid transaction amounts.
+            6. In the `main.py` file, instantiate the `BankingSystem` class and implement a simple
+            command-line interface that allows users to interact with the system by creating
+            accounts, logging in, and performing transactions.
+            7. Ensure that all user interactions are validated and that meaningful messages are
+            displayed for successful operations and errors.
+            8. Add documentation and comments throughout the code to explain the functionality of
+            classes, methods, and critical sections.
+        </instructions>
+        <explanation>
+            These comprehensive instructions guide the LLM to build a simulated banking system in
+            Python. The system includes user account management, transaction processing, data
+            persistence, and a user interface for interactions. Emphasis is placed on error
+            handling, data validation, and proper documentation to ensure a robust and maintainable
+            codebase.
+        </explanation>
+    </example>
+
+    <!-- Example 5: More Complex Task -->
+    <example>
+        <title>JavaScript Application: Data Visualization with D3.js</title>
+        <description>Instructions to design a JavaScript application that visualizes a dataset using
+            D3.js, including interactive charts and filters.</description>
+        <instructions>
+            1. Create a file named `data_loader.js` and define a class `DataLoader` responsible for
+            loading data from a CSV file using D3.js.
+            2. In `chart.js`, define a class `Chart` that takes a selector and data as parameters.
+            Implement a method `render` that uses D3.js to create an SVG element and render a simple
+            bar chart based on the data.
+            3. Create a file named `filter.js` and define a class `Filter` that takes data as a
+            parameter. Implement a method `applyFilter` that uses Lodash to filter the dataset based
+            on provided criteria.
+            4. In `app.js`, import the `DataLoader`, `Chart`, and `Filter` classes. Define a class
+            `App` that initializes instances of these classes and orchestrates the data loading,
+            chart rendering, and filtering processes.
+            5. Create an `index.html` file that includes a script tag to import the `App` class. Set
+            up an HTML container (e.g., a `div` with an id of `chart-container`) where the data
+            visualization will be rendered.
+            6. Within the `index.html` file's script section, instantiate the `App` class with the
+            path to the CSV data file and the selector for the chart container. Call the
+            initialization method to load data and render the chart upon the DOM content being
+            loaded.
+            7. Implement interactive features such as tooltips, dynamic filtering options, and
+            responsive design to enhance the user experience.
+            8. Add comments and documentation to each JavaScript file to explain the purpose and
+            functionality of classes, methods, and key code sections.
+        </instructions>
+        <explanation>
+            These instructions guide the LLM to build a modular JavaScript application for data
+            visualization using D3.js. The application includes data loading, chart rendering, and
+            filtering functionalities, organized into separate modules for maintainability.
+            Interactive features and responsive design considerations are emphasized to create a
+            user-friendly experience. Proper documentation ensures clarity and ease of future
+            development.
+        </explanation>
+    </example>
+
+    <!-- Example 6: API-Related Task -->
+    <example>
+        <title>Node.js RESTful API: Book Management</title>
+        <description>Instructions to develop a RESTful API using Node.js and Express.js for managing
+            a collection of books.</description>
+        <instructions>
+            1. Create a file named `api.js` and initialize an Express.js application.
+            2. Install and configure the `body-parser` middleware to handle JSON request bodies.
+            3. Set up a connection to a MongoDB database using the `mongoose` library. Ensure that
+            the connection handles successful connections and potential errors.
+            4. Define a Mongoose schema and model for a `Book` with fields such as `title`,
+            `author`, `publishedDate`, and `pages`. Make sure to include appropriate data types and
+            validation rules.
+            5. Implement the following RESTful endpoints:
+            - `GET /books`: Retrieve and return a list of all books in the collection.
+            - `POST /books`: Create a new book using the data provided in the request body and save
+            it to the database.
+            - `GET /books/:id`: Retrieve and return a single book by its unique ID.
+            - `PUT /books/:id`: Update the details of an existing book identified by its ID using
+            the data provided in the request body.
+            - `DELETE /books/:id`: Remove a book from the collection based on its ID.
+            6. For each endpoint, include error handling to manage scenarios such as invalid data,
+            database connection issues, or attempts to access non-existent resources. Respond with
+            appropriate HTTP status codes and messages.
+            7. Implement middleware functions as needed, such as a function to retrieve a book by ID
+            (`getBook`) and attach it to the request object for use in subsequent handlers.
+            8. Export the Express `app` instance from `api.js` to allow for server configuration and
+            deployment.
+            9. Add comments and documentation throughout the code to explain the functionality of
+            routes, middleware, and database interactions.
+        </instructions>
+        <explanation>
+            These instructions direct the LLM to build a RESTful API for managing books using
+            Node.js and Express.js. The API includes endpoints for creating, reading, updating, and
+            deleting books, with robust error handling and data validation facilitated by Mongoose
+            and MongoDB. Proper middleware implementation and documentation ensure the API is
+            maintainable and scalable.
+        </explanation>
+    </example>
+
+    <!-- Example 7: API-Related Task -->
+    <example>
+        <title>Python GraphQL API: User Management with Django</title>
+        <description>Instructions to design a GraphQL API using Python and Django for managing a
+            collection of users.</description>
+        <instructions>
+            1. Create a file named `schema.py` within your Django project.
+            2. Import the necessary libraries, including `graphene`, `graphene_django`, and Django's
+            built-in `User` model.
+            3. Define a `DjangoObjectType` named `UserType` that maps to the `User` model and
+            includes fields such as `id`, `username`, and `email`.
+            4. Create a `Query` class inheriting from `graphene.ObjectType` that includes:
+            - A `users` field returning a list of `UserType` objects.
+            - A `user` field that takes an `id` as an argument and returns a single `UserType`
+            object.
+            5. Implement resolver methods for the `users` and `user` fields. Use the
+            `@login_required` decorator to ensure that only authenticated users can access these
+            queries.
+            6. Define mutations for creating and updating users:
+            - `CreateUser`: A mutation that takes `username`, `email`, and `password` as arguments,
+            creates a new user, and returns the created `UserType` object.
+            - `UpdateUser`: A mutation that takes `id`, `email`, and/or `password` as arguments,
+            updates the specified user's details, and returns the updated `UserType` object.
+            7. Incorporate authentication using the `graphql_jwt` library by defining mutations for
+            obtaining, verifying, and refreshing JSON Web Tokens.
+            8. Create a `Mutation` class inheriting from `graphene.ObjectType` that includes the
+            defined user mutations and authentication mutations.
+            9. Define the overall GraphQL schema by combining the `Query` and `Mutation` classes
+            using `graphene.Schema`.
+            10. Ensure that all resolver methods include error handling to manage cases such as
+            non-existent users or invalid input data.
+            11. Add documentation comments to describe the purpose and functionality of each class,
+            method, and significant code block.
+        </instructions>
+        <explanation>
+            These instructions guide the LLM in creating a GraphQL API for user management using
+            Python and Django. The API includes queries for retrieving users, mutations for creating
+            and updating users, and integrates authentication mechanisms using JSON Web Tokens.
+            Emphasis is placed on proper schema definition, resolver implementation, and error
+            handling to ensure a secure and functional API.
+        </explanation>
+    </example>
+</examples>
+
+<backlog-template>
+    Create a detailed backlog for the following requirement in my project, including user stories,
+    actions to undertake, references between files, list of files being created, acceptance
+    criteria, testing plan, and any other relevant details.
+
+    The backlog should include the following elements:
+
+    1. **User Story**: Write a clear and concise user story that describes the desired functionality
+    or feature, including the user's role, goal, and expected outcome.
+    2. **Actions to Undertake**: Break down the user story into specific, actionable tasks that need
+    to be completed to deliver the desired functionality. These tasks should be described in detail,
+    including any necessary steps, inputs, and outputs.
+    3. **References between Files**: Identify any relationships or dependencies between files that
+    will be created as part of the project, including data flows, APIs, or other integrations.
+    4. **List of Files being Created**: Provide a comprehensive list of all files that will be
+    created as part of the project, including code files, documentation files, and any other
+    relevant artifacts.
+    5. **Acceptance Criteria**: Define clear and measurable acceptance criteria for each user story,
+    including any specific requirements or constraints that must be met.
+    6. **Testing Plan**: Describe the testing approach and methodology that will be used to validate
+    the acceptance criteria, including any test cases, test data, and testing tools.
+    7. **Assumptions and Dependencies**: Identify any assumptions or dependencies that are being
+    made as part of the project, including any external dependencies or third-party libraries.
+    8. **Non-Functional Requirements**: Describe any non-functional requirements that are relevant
+    to the project, including performance, security, or usability considerations.
+    9. **Development Steps**: Outline the step-by-step instructions provided to guide the
+    development process, ensuring clarity and thoroughness in executing the project tasks.
+
+    The backlog should be written in a clear and concise manner, with proper formatting and headings
+    to facilitate easy reading and understanding.
+
+    Please include the following sections in the backlog:
+
+    * **Introduction**
+    * **User Stories**
+    * **Actions to Undertake**
+    * **References between Files**
+    * **List of Files being Created**
+    * **Acceptance Criteria**
+    * **Testing Plan**
+    * **Assumptions and Dependencies**
+    * **Non-Functional Requirements**
+    * **Development Steps**
+    * **Conclusion**
+
+    Use the following format for each user story:
+
+    * **User Story [Number]**: [ Brief description of the user story]
+    + **Description**: [Detailed description of the user story]
+    + **Actions to Undertake**: [List of specific tasks to complete]
+    + **References between Files**: [List of relationships or dependencies between files]
+    + **Acceptance Criteria**: [Clear and measurable criteria for acceptance]
+    + **Testing Plan**: [Description of the testing approach and methodology]
+
+    Use the following format for each file being created:
+
+    * **File [Number]**: [File name and description]
+    + **Purpose**: [ Brief description of the file's purpose]
+    + **Contents**: [Detailed description of the file's contents]
+    + **Relationships**: [List of relationships or dependencies with other files]
+
+    Use the following format for each test case:
+
+    * **Test Case [Number]**: [ Brief description of the test case]
+    + **Test Data**: [Description of the test data used]
+    + **Expected Result**: [Description of the expected result]
+    + **Testing Tool**: [Description of the testing tool used]
+
+    Use the following format for Development Steps:
+
+    * **Step [Number]**: [Brief description of the development step]
+    + **Details**: [Detailed description of the step, including any necessary actions or
+    considerations]
+
+    Please provide a comprehensive and detailed backlog that covers all aspects of the project,
+    including user stories, actions to undertake, references between files, list of files being
+    created, acceptance criteria, testing plan, assumptions and dependencies, non-functional
+    requirements, and development steps.
+
+    **Output Format**: Please provide the backlog in a markdown format, with proper headings,
+    subheadings, and formatting to facilitate easy reading and understanding.
+</backlog-template>
+<user-epic>
+
+
+    <user-requirement>
+        Create a workflow with LangChain and LangGraph to be able to run tests, get the output of
+        the data, identify the files that are needed to make the change based on the output of the
+        test. We should be able to call a Python script with some arguments such as --test-cmd which
+        would be the command to run in the repo and another arg --repo the directory where the files
+        can be found and where you can run the command to get the test.
+
+        The feature should:
+        - Call the command.
+        - Get the output.
+        - Breakdown the errors and save them in a temporary epic list in the memory to tackle one by
+        one.
+        - Analyze and identify the files needed using an LLM prompt by asking the model to find the
+        relevant files by getting the list of all files in that repo.
+        - Get a list of files to potentially read based on the error.
+        - Analyze the files.
+        - Discard or add new files based on the analysis (e.g., if there are additional imports from
+        another file that might be causing an issue, load those files).
+        - Start the fixing process:
+        - Understand the error.
+        - Analyze how to fix it.
+        - Produce some sample code to fix it.
+        - Instruct the LLM to fix it by producing detailed instructions while providing the context
+        of the files found.
+        - Patch the code.
+        - Ensure there are no major errors by asking the LLM if there are some errors.
+        - If errors exist, iterate by asking the LLM to fix them.
+        - Once fixed, run the test again to see if it passes.
+        - If it fails, rerun the workflow again.
+    </user-requirement>
+
+    <files>
+        <file path="/absolute/path/to/src/integrated_workflow.py">
+            <!-- Implementation of the integrated workflow -->
+        </file>
+        <file path="/absolute/path/to/src/tools/navigator_tools.py">
+            <!-- Tools for navigator functions -->
+        </file>
+        <file path="/absolute/path/to/src/tools/driver_tools.py">
+            <!-- Tools for driver functions -->
+        </file>
+        <file path="/absolute/path/to/src/analyzers/typescript_analyzer.py">
+            <!-- TypeScript code analyzer -->
+        </file>
+        <file path="/absolute/path/to/src/code_splitter.py">
+            <!-- Code splitting utility -->
+        </file>
+        <file path="/absolute/path/to/src/cli_interface.py">
+            <!-- CLI interface implementation -->
+        </file>
+        <file path="/absolute/path/to/src/navigator_graph.py">
+            <!-- Navigator graph implementation -->
+        </file>
+        <file path="/absolute/path/to/src/driver_graph.py">
+            <!-- Driver graph implementation -->
+        </file>
+        <file path="/absolute/path/to/tests/test_navigator.py">
+            <!-- Tests for navigator -->
+        </file>
+        <file path="/absolute/path/to/tests/test_backlog_generator.py">
+            <!-- Tests for backlog generator -->
+        </file>
+    </files>
+
+    <epics>
+        <epic step="1">
+            <description>Set Up Command-Line Interface (CLI) for Workflow Execution</description>
+            <steps>
+                <step>Create a new Python script to handle CLI arguments such as --test-cmd and
+                    --repo.</step>
+                <step>Use the `click` library to parse and validate the input arguments.</step>
+                <step>Integrate the CLI script with the existing `cli_interface.py` to initiate the
+                    workflow.</step>
+            </steps>
+        </epic>
+        <epic step="2">
+            <description>Implement Test Execution Node in LangGraph</description>
+            <steps>
+                <step>Define a new node in `integrated_workflow.py` that calls the provided test
+                    command using LangChain's ShellTool.</step>
+                <step>Capture the output of the test command and store it in the workflow state.</step>
+                <step>Handle any exceptions or errors that occur during test execution.</step>
+            </steps>
+        </epic>
+        <epic step="3">
+            <description>Develop Error Parsing Functionality</description>
+            <steps>
+                <step>Create a function in `backlog_generator.py` to parse the test output and
+                    extract individual error messages.</step>
+                <step>Use spaCy or another NLP library to accurately identify and categorize errors.</step>
+                <step>Store the extracted errors in a temporary epic list within the workflow's
+                    memory.</step>
+            </steps>
+        </epic>
+        <epic step="4">
+            <description>Identify Relevant Files Based on Errors</description>
+            <steps>
+                <step>Implement a function in `navigator_tools.py` that utilizes an LLM prompt to
+                    analyze each error and determine associated files.</step>
+                <step>Retrieve a list of all files in the specified repository directory using the
+                    `list_files` tool.</step>
+                <step>Filter and compile a list of relevant files that may be impacted by each
+                    error.</step>
+            </steps>
+        </epic>
+        <epic step="5">
+            <description>Analyze and Manage Dependencies Among Files</description>
+            <steps>
+                <step>Develop a dependency analysis function in `driver_tools.py` to examine
+                    relationships between identified files.</step>
+                <step>Use the LLM to identify additional files or imports that may influence the
+                    error resolution.</step>
+                <step>Update the list of files to include any newly identified dependencies.</step>
+            </steps>
+        </epic>
+        <epic step="6">
+            <description>Generate and Apply Fixes for Identified Errors</description>
+            <steps>
+                <step>Create a function in `analyzers/typescript_analyzer.py` to understand and
+                    categorize each error.</step>
+                <step>Use the LLM to generate detailed instructions and sample code snippets to fix
+                    each error.</step>
+                <step>Apply the generated fixes to the relevant files using the `write_file` tool.</step>
+            </steps>
+        </epic>
+        <epic step="7">
+            <description>Validate Applied Fixes</description>
+            <steps>
+                <step>Implement a verification function in `integrated_workflow.py` that checks for
+                    remaining errors using the LLM.</step>
+                <step>If errors are still present, iterate by generating new fixes and reapplying
+                    them.</step>
+                <step>Ensure that the number of fix attempts does not exceed a predefined limit to
+                    prevent infinite loops.</step>
+            </steps>
+        </epic>
+        <epic step="8">
+            <description>Re-Run Tests and Monitor Workflow Progress</description>
+            <steps>
+                <step>After applying fixes, re-execute the test command to verify if the errors have
+                    been resolved.</step>
+                <step>Analyze the new test output to determine if the workflow should continue or
+                    terminate.</step>
+                <step>Log and report the final outcome of the workflow execution.</step>
+            </steps>
+        </epic>
+        <epic step="9">
+            <description>Integrate Workflow with Existing Codebase</description>
+            <steps>
+                <step>Review existing files in the codebase to identify integration points for the
+                    new workflow.</step>
+                <step>Modify `navigator_graph.py` and `driver_graph.py` to incorporate the new
+                    workflow nodes.</step>
+                <step>Ensure that all new dependencies and tools are properly imported and utilized
+                    within the workflow.</step>
+            </steps>
+        </epic>
+        <epic step="10">
+            <description>Implement Memory Management for epic Lists</description>
+            <steps>
+                <step>Use `NavigatorMemorySaver` in `navigator_graph.py` to store and manage the
+                    temporary epic lists.</step>
+                <step>Ensure that each epic is processed sequentially and state is consistently
+                    updated.</step>
+                <step>Handle the clearing of memory once all epics have been successfully addressed.</step>
+            </steps>
+        </epic>
+        <epic step="11">
+            <description>Add Comprehensive Logging and Error Handling</description>
+            <steps>
+                <step>Enhance logging in `llm_wrapper.py` and other relevant files to track workflow
+                    progress.</step>
+                <step>Implement error handling mechanisms to gracefully manage unexpected issues
+                    during workflow execution.</step>
+                <step>Ensure that all critical actions are logged for debugging and audit purposes.</step>
+            </steps>
+        </epic>
+    </epics>
+
+</user-epic>
+
+<files> [[files]] </files>
+<user-prompt>
+    create the detailed backlog for epic 2.
+    ensure it's return for a really dumb LLM to perform the task, you have to hold their hands to
+    write the code.
+    ensure we ask the LLM to write the code in the language of the project.
+</user-prompt>

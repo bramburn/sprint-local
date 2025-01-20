@@ -1,10 +1,13 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set, Union
 from dataclasses import dataclass
 import ast
 import inspect
+import os
+import re
+from pathlib import Path
 from llm_wrapper import LLMWrapper
-from langchain.prompts import ChatPromptTemplate
-import json
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain_core.messages import SystemMessage
 
 @dataclass
 class TestCase:
@@ -45,6 +48,13 @@ class RefactoringPlan:
     risks: List[str]
     effort_estimate: str
 
+@dataclass
+class FileDependencies:
+    file_path: str
+    imports: List[str]  # List of imported modules/files
+    imported_by: List[str]  # List of files that import this file
+    related_files: List[str]  # Files that might be related but not directly imported
+
 class DriverTools:
     def __init__(self, llm: LLMWrapper):
         self.llm = llm
@@ -53,187 +63,48 @@ class DriverTools:
     def _init_prompts(self):
         """Initialize ChatPromptTemplates for all tools."""
         self.test_generation_prompt_python = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at writing comprehensive test cases for Python."},
-            {"role": "user", "content": """Generate unit tests for this Python function:
-
-{function_signature}
-
-{function_code}
-
-Generate 3 test cases that cover:
-1. Normal case
-2. Edge case
-3. Error case
-
-For each test case provide:
-- Test name
-- Test description
-- Test code (using pytest)
-- Expected result
-
-Format your response as a JSON list of test objects."""}
+            SystemMessage(content="You are an expert at writing comprehensive test cases for Python."),
+            HumanMessagePromptTemplate.from_template("Please generate test cases for the following code:\n\nFunction signature:\n{function_signature}\n\nFunction code:\n{function_code}")
         ])
 
         self.test_generation_prompt_typescript = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at writing comprehensive test cases for TypeScript."},
-            {"role": "user", "content": """Generate unit tests for this TypeScript function:
-
-{function_signature}
-
-{function_code}
-
-Generate 3 test cases that cover:
-1. Normal case
-2. Edge case
-3. Error case
-
-For each test case provide:
-- Test name
-- Test description
-- Test code (using Jest)
-- Expected result
-
-Format your response as a JSON list of test objects."""}
+            SystemMessage(content="You are an expert at writing comprehensive test cases for TypeScript."),
+            HumanMessagePromptTemplate.from_template("Please generate test cases for the following code:\n\nFunction signature:\n{function_signature}\n\nFunction code:\n{function_code}")
         ])
 
         self.debug_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at debugging Python code."},
-            {"role": "user", "content": """Analyze this Python code and error message:
-
-Code:
-{code}
-
-Error:
-{error_message}
-
-Provide:
-1. Error type and explanation
-2. Possible causes
-3. Suggested fixes
-4. Example of corrected code (if applicable)
-
-Format your response as a JSON object."""}
+            SystemMessage(content="You are an expert at debugging code and identifying root causes of errors."),
+            HumanMessagePromptTemplate.from_template("Please help debug the following error:\n\nError:\n{error_message}\n\nCode context:\n{code}")
         ])
 
-        self.performance_analysis_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at optimizing Python code performance."},
-            {"role": "user", "content": """Analyze this Python code for performance:
-
-{code}
-
-Consider:
-1. Time complexity
-2. Space complexity
-3. Potential bottlenecks
-4. Optimization opportunities
-
-{profiling_data}
-
-Format your response as a JSON object with metrics and suggestions."""}
+        self.performance_prompt = ChatPromptTemplate.from_messages([
+            SystemMessage(content="You are an expert at analyzing code performance and suggesting optimizations."),
+            HumanMessagePromptTemplate.from_template("Please analyze the performance of this code:\n\n{code}")
         ])
 
         self.code_review_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert code reviewer focusing on best practices and security."},
-            {"role": "user", "content": """Review this Python code:
-
-File: {file_path}
-
-Code:
-{code}
-
-Perform a comprehensive review considering:
-1. Code quality and style
-2. Potential bugs
-3. Security vulnerabilities
-4. Performance implications
-5. Best practices adherence
-
-Format your response as a JSON object with:
-- issues: list of objects with line_number, severity, and description
-- suggestions: list of improvement suggestions
-- best_practices: list of best practices to follow
-- security_concerns: list of security-related issues"""}
+            SystemMessage(content="You are an expert at code review and best practices."),
+            HumanMessagePromptTemplate.from_template("Please review this code:\n\n{code}")
         ])
 
         self.refactoring_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at code refactoring and design patterns."},
-            {"role": "user", "content": """Analyze this code for refactoring opportunities:
-
-{code}
-
-Consider:
-1. Code structure and organization
-2. Design patterns that could be applied
-3. Maintainability improvements
-4. Code reusability
-5. Performance optimizations
-
-Provide:
-- Specific suggested changes
-- Benefits of each change
-- Potential risks
-- Effort estimation
-
-Format your response as a JSON object."""}
+            SystemMessage(content="You are an expert at code refactoring and improving code quality."),
+            HumanMessagePromptTemplate.from_template("Please suggest refactoring improvements for this code:\n\n{code}")
         ])
 
         self.documentation_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert technical writer."},
-            {"role": "user", "content": """Generate {doc_type} documentation for this code:
-
-{code}
-
-Requirements:
-1. Clear and concise explanations
-2. Include usage examples
-3. Document parameters and return values
-4. Note any important caveats or requirements
-5. Follow {doc_type} best practices
-
-Format your response as a markdown-formatted string."""}
+            SystemMessage(content="You are an expert at writing clear and comprehensive documentation."),
+            HumanMessagePromptTemplate.from_template("Please generate documentation for this code:\n\n{code}")
         ])
 
-        self.dependency_analysis_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at analyzing code dependencies and package management."},
-            {"role": "user", "content": """Analyze dependencies in this code:
-
-{code}
-
-Consider:
-1. Import statements and their usage
-2. External package dependencies
-3. Version compatibility issues
-4. Unused imports
-5. Circular dependencies
-6. Security implications of dependencies
-
-Format your response as a JSON object with:
-- required_packages: list of required packages
-- unused_imports: list of unused imports
-- suggested_versions: object mapping package to version
-- security_concerns: list of security notes
-- optimization_suggestions: list of suggestions"""}
+        self.dependency_prompt = ChatPromptTemplate.from_messages([
+            SystemMessage(content="You are an expert at analyzing code dependencies and relationships between files."),
+            HumanMessagePromptTemplate.from_template("Please analyze the dependencies in these files or code:\n\nCode:\n{code}")
         ])
 
         self.test_suggestion_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at test coverage and quality assurance."},
-            {"role": "user", "content": """Analyze this code and suggest tests to achieve {coverage_target}% coverage:
-
-{code}
-
-Consider:
-1. Edge cases and boundary conditions
-2. Error scenarios
-3. Integration test cases
-4. Performance test scenarios
-5. Security test cases
-
-Format your response as a JSON object with:
-- unit_tests: list of suggested unit tests
-- integration_tests: list of suggested integration tests
-- edge_cases: list of edge cases to test
-- expected_coverage: object with coverage metrics
-- testing_strategy: overall testing approach"""}
+            SystemMessage(content="You are an expert at identifying areas that need testing and suggesting test cases."),
+            HumanMessagePromptTemplate.from_template("Please suggest test cases for this code to achieve {coverage_target}% coverage:\n\n{code}")
         ])
 
     async def generate_test_cases(self, code: str, language: Optional[str] = None) -> List[TestCase]:
@@ -251,63 +122,50 @@ Format your response as a JSON object with:
         if not language:
             language = self._detect_language(code)
         
-        try:
-            tree = ast.parse(code)
-            functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
-        except Exception as e:
-            raise ValueError(f"Failed to parse code: {e}")
+        # Select appropriate prompt template
+        prompt_template = (
+            self.test_generation_prompt_typescript 
+            if language.lower() == 'typescript' 
+            else self.test_generation_prompt_python
+        )
 
-        test_cases = []
-        for func in functions:
-            # Extract function signature and code for context
-            func_signature = self.extract_function_signature(func)
-            func_code = ast.unparse(func)
-            
-            # Customize prompt based on language
-            prompt_template = (
-                self.test_generation_prompt_python if language == 'python' 
-                else self.test_generation_prompt_typescript
-            )
-            
-            prompt = prompt_template.format(
-                function_signature=func_signature,
-                function_code=func_code
-            )
-            
+        # Extract function signature and code
+        function_signature = ""
+        function_code = code
+        function_name = ""
+        if language.lower() == 'python':
             try:
-                response = await self.llm.aask(prompt)
-                
-                # Handle different response types
-                try:
-                    # First try parsing as JSON
-                    tests = self.llm.parse_json(response)
-                except Exception:
-                    # If parsing fails, try evaluating
-                    try:
-                        tests = eval(response)
-                    except Exception:
-                        # If all parsing fails, assume it's already a list
-                        tests = response
-                
-                # Ensure tests is a list
-                if not isinstance(tests, list):
-                    tests = [tests]
-                
-                for test in tests:
-                    test_cases.append(
-                        TestCase(
-                            function_name=func.name,
-                            test_name=test.get('test_name', f'test_{func.name}'),
-                            test_code=test.get('test_code', ''),
-                            description=test.get('description', 'Automatically generated test'),
-                            expected_result=test.get('expected_result')
-                        )
-                    )
+                tree = ast.parse(code)
+                functions = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)]
+                if functions:
+                    function_signature = self.extract_function_signature(functions[0])
+                    function_code = ast.unparse(functions[0])
+                    function_name = functions[0].name
             except Exception as e:
-                # Log the error but continue processing other functions
-                print(f"Error generating tests for {func.name}: {e}")
+                function_signature = code.split('\n')[0] if code else ""
+        else:
+            # For TypeScript, extract function name from signature
+            match = re.search(r'function\s+(\w+)', code)
+            if match:
+                function_name = match.group(1)
+            # For TypeScript, just use the first line as signature
+            function_signature = code.split('\n')[0] if code else ""
+
+        # Format prompt with both signature and full code
+        prompt = prompt_template.format(
+            function_signature=function_signature,
+            function_code=function_code
+        )
+
+        # Get response from LLM
+        response = await self.llm.aask(prompt)
         
-        return test_cases
+        try:
+            test_cases = self.llm.parse_json(response)
+            # Add function_name to each test case
+            return [TestCase(function_name=function_name, **test_case) for test_case in test_cases]
+        except Exception as e:
+            raise ValueError(f"Failed to parse LLM response: {e}")
 
     def _detect_language(self, code: str) -> str:
         """
@@ -346,7 +204,7 @@ Format your response as a JSON object with:
     async def analyze_performance(self, code: str, profiling_data: Optional[Dict] = None) -> PerformanceMetrics:
         """Analyzes code performance and suggests optimizations."""
         profiling_text = f"Profiling data:\n{profiling_data}" if profiling_data else ""
-        prompt = self.performance_analysis_prompt.format(code=code, profiling_data=profiling_text)
+        prompt = self.performance_prompt.format(code=code)
         response = await self.llm.aask(prompt)
         try:
             metrics = self.llm.parse_json(response)
@@ -361,7 +219,7 @@ Format your response as a JSON object with:
 
     async def review_code(self, code: str, file_path: str) -> CodeReview:
         """Performs a comprehensive code review."""
-        prompt = self.code_review_prompt.format(code=code, file_path=file_path)
+        prompt = self.code_review_prompt.format(code=code)
         response = await self.llm.aask(prompt)
         try:
             review = self.llm.parse_json(response)
@@ -397,30 +255,234 @@ Format your response as a JSON object with:
         doc_type: str = "docstring"
     ) -> str:
         """Generates documentation for the given code."""
-        prompt = self.documentation_prompt.format(code=code, doc_type=doc_type)
+        prompt = self.documentation_prompt.format(code=code)
         response = await self.llm.aask(prompt)
         return response.strip()
 
-    async def analyze_dependencies(self, code: str) -> Dict[str, Any]:
-        """Analyzes code dependencies and suggests improvements."""
-        prompt = self.dependency_analysis_prompt.format(code=code)
-        response = await self.llm.aask(prompt)
-        try:
-            return self.llm.parse_json(response)
-        except Exception as e:
-            raise ValueError(f"Failed to parse LLM response: {e}")
+    def analyze_dependencies(self, code_or_files: Union[str, List[str]], repo_root: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Analyzes code or file dependencies and provides insights.
 
-    async def suggest_tests(self, code: str, coverage_target: float = 0.8) -> Dict[str, Any]:
-        """Suggests additional test cases to improve coverage."""
-        prompt = self.test_suggestion_prompt.format(
-            code=code,
-            coverage_target=coverage_target * 100
-        )
-        response = await self.llm.aask(prompt)
+        Args:
+            code_or_files: Either a single code string or a list of file paths
+            repo_root: Optional root directory of the repository (required if files are provided)
+
+        Returns:
+            Dict[str, Any]: A dictionary containing dependency insights
+        """
+        # If a single code string is provided
+        if isinstance(code_or_files, str):
+            # Get response from LLM
+            prompt = self.dependency_prompt.format(code=code_or_files)
+            response = self.llm.generate_response(prompt)
+            
+            try:
+                dependency_info = self.llm.parse_json(response)
+                return dependency_info
+            except Exception as e:
+                raise ValueError(f"Failed to parse LLM response: {e}")
+        
+        # If a list of files is provided
+        elif isinstance(code_or_files, list):
+            if not repo_root:
+                raise ValueError("repo_root is required when analyzing file dependencies")
+            
+            # Analyze dependencies between files
+            dependencies = self.analyze_dependencies_between_files(code_or_files, repo_root)
+            
+            # Get additional files from LLM
+            additional_files = self.get_additional_files_from_llm(code_or_files, dependencies)
+            
+            # Update file list
+            updated_files = self.update_file_list(code_or_files, additional_files)
+            
+            return {
+                "dependencies": dependencies,
+                "updated_files": updated_files
+            }
+        
+        else:
+            raise TypeError("Input must be a code string or a list of file paths")
+
+    def analyze_dependencies_between_files(self, file_paths: List[str], repo_root: str) -> Dict[str, FileDependencies]:
+        """
+        Analyzes the dependencies between files.
+
+        Args:
+            file_paths: A list of file paths.
+            repo_root: The root directory of the repository.
+
+        Returns:
+            A dictionary mapping file paths to their FileDependencies.
+        """
+        dependencies: Dict[str, FileDependencies] = {}
+        repo_root_path = Path(repo_root)
+
+        # First pass: collect all imports
+        for file_path in file_paths:
+            try:
+                abs_path = repo_root_path / file_path
+                with open(abs_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    
+                imports = []
+                if file_path.endswith('.py'):
+                    imports = self._analyze_python_imports(content)
+                elif file_path.endswith(('.js', '.ts')):
+                    imports = self._analyze_js_imports(content)
+                
+                dependencies[file_path] = FileDependencies(
+                    file_path=file_path,
+                    imports=imports,
+                    imported_by=[],
+                    related_files=[]
+                )
+            except Exception as e:
+                print(f"Error analyzing {file_path}: {e}")
+                dependencies[file_path] = FileDependencies(
+                    file_path=file_path,
+                    imports=[],
+                    imported_by=[],
+                    related_files=[]
+                )
+
+        # Second pass: populate imported_by
+        for file_path, dep in dependencies.items():
+            for imported_file in dep.imports:
+                if imported_file in dependencies:
+                    dependencies[imported_file].imported_by.append(file_path)
+
+        return dependencies
+
+    def _analyze_python_imports(self, content: str) -> List[str]:
+        """Analyzes Python imports using AST."""
+        imports = []
         try:
-            return self.llm.parse_json(response)
+            tree = ast.parse(content)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for name in node.names:
+                        imports.append(name.name.replace('.', '/') + '.py')
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module:
+                        imports.append(node.module.replace('.', '/') + '.py')
         except Exception as e:
-            raise ValueError(f"Failed to parse LLM response: {e}")
+            print(f"Error parsing Python imports: {e}")
+        return imports
+
+    def _analyze_js_imports(self, content: str) -> List[str]:
+        """Analyzes JavaScript/TypeScript imports using regex."""
+        imports = []
+        # Match ES6 imports and requires
+        patterns = [
+            r'(?:import|export).*?[\'\"](.+?)[\'\"]',  # ES6 imports
+            r'require\([\'\"](.*?)[\'\"]',  # CommonJS requires
+        ]
+        
+        for pattern in patterns:
+            matches = re.finditer(pattern, content)
+            for match in matches:
+                import_path = match.group(1)
+                # Handle relative imports and node_modules
+                if import_path.startswith('.'):
+                    imports.append(import_path)
+                elif not import_path.startswith('@'):  # Skip node_modules
+                    imports.append(import_path)
+        
+        return imports
+
+    def get_additional_files_from_llm(
+        self,
+        file_paths: List[str],
+        dependencies: Dict[str, FileDependencies]
+    ) -> List[str]:
+        """
+        Uses an LLM to identify additional files that may be relevant.
+
+        Args:
+            file_paths: A list of file paths.
+            dependencies: A dictionary mapping file paths to their FileDependencies.
+
+        Returns:
+            A list of additional file paths.
+        """
+        # Format the dependencies for the prompt
+        file_list = "\n".join(file_paths)
+        deps_text = []
+        for file_path, dep in dependencies.items():
+            deps_text.append(f"{file_path}:")
+            if dep.imports:
+                deps_text.append("  Imports:")
+                deps_text.extend(f"    - {imp}" for imp in dep.imports)
+            if dep.imported_by:
+                deps_text.append("  Imported by:")
+                deps_text.extend(f"    - {imp}" for imp in dep.imported_by)
+        
+        dependencies_text = "\n".join(deps_text)
+        
+        # Get response from LLM
+        response = self.llm.generate_response(
+            self.dependency_prompt,
+            {
+                "code": dependencies_text
+            }
+        )
+        
+        if not response:
+            return []
+        
+        # Parse response into list of files
+        additional_files = [
+            line.strip()
+            for line in response.split("\n")
+            if line.strip() and not line.startswith(("#", "//"))
+        ]
+        
+        return additional_files
+
+    def update_file_list(self, original_files: List[str], additional_files: List[str]) -> List[str]:
+        """
+        Updates the list of files to include any newly identified dependencies.
+
+        Args:
+            original_files: The original list of files.
+            additional_files: A list of additional files.
+
+        Returns:
+            The updated list of files.
+        """
+        # Use a set to remove duplicates while preserving order
+        seen: Set[str] = set()
+        updated_files: List[str] = []
+        
+        # Add files in order, skipping duplicates
+        for file_path in original_files + additional_files:
+            if file_path not in seen:
+                seen.add(file_path)
+                updated_files.append(file_path)
+        
+        return updated_files
+
+    def analyze_and_manage_dependencies(
+        self,
+        file_paths: List[str],
+        repo_root: str
+    ) -> List[str]:
+        """
+        Analyzes and manages dependencies among files.
+
+        Args:
+            file_paths: A list of file paths.
+            repo_root: The root directory of the repository.
+
+        Returns:
+            The updated list of files.
+        """
+        # Analyze dependencies
+        result = self.analyze_dependencies(file_paths, repo_root)
+        
+        # Return the updated list of files
+        return result.get('updated_files', file_paths)
 
     def extract_function_signature(self, func_def: ast.FunctionDef) -> str:
         """Helper method to extract function signature from AST node."""
@@ -442,4 +504,65 @@ Format your response as a JSON object with:
         if func_def.args.kwarg:
             args.append(f"**{func_def.args.kwarg.arg}")
             
-        return f"def {func_def.name}({', '.join(args)}):" 
+        return f"def {func_def.name}({', '.join(args)}):"
+
+    async def suggest_tests(self, code: str, coverage_target: float = 0.9) -> Dict[str, Any]:
+        """
+        Suggests test cases for the given code.
+
+        Args:
+            code (str): Source code to generate test suggestions for
+            coverage_target (float, optional): Target code coverage percentage. Defaults to 0.9.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing test suggestions
+        """
+        # Format prompt with code and coverage target
+        prompt = self.test_suggestion_prompt.format(
+            code=code, 
+            coverage_target=int(coverage_target * 100)
+        )
+
+        # Get response from LLM
+        response = await self.llm.aask(prompt)
+        
+        try:
+            test_suggestions = self.llm.parse_json(response)
+            return test_suggestions
+        except Exception as e:
+            raise ValueError(f"Failed to parse LLM response: {e}")
+
+    async def analyze_dependencies(self, code: str) -> Dict[str, Any]:
+        """
+        Analyzes code dependencies and provides insights.
+
+        Args:
+            code (str): Source code to analyze
+
+        Returns:
+            Dict[str, Any]: A dictionary containing dependency insights
+        """
+        # Get response from LLM
+        prompt = self.dependency_prompt.format(code=code)
+        response = await self.llm.aask(prompt)
+        
+        try:
+            dependency_info = self.llm.parse_json(response)
+            return dependency_info
+        except Exception as e:
+            raise ValueError(f"Failed to parse LLM response: {e}")
+
+def write_file(file_path: str, content: str) -> None:
+    """
+    Write content to a file, creating the directory if it doesn't exist.
+
+    Args:
+        file_path: The path to the file to write.
+        content: The content to write to the file.
+    """
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
+    # Write the content to the file
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(content) 

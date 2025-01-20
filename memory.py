@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, List
 import os
 import json
 import aiofiles
+from datetime import datetime
 
 class NavigatorMemorySaver(BaseCheckpointSaver):
     """
@@ -126,3 +127,114 @@ class NavigatorMemorySaver(BaseCheckpointSaver):
                     os.remove(os.path.join(self.storage_path, filename))
         else:
             self.memory_store.clear()
+
+    async def add_epic(
+        self, 
+        epic_id: str, 
+        content: Dict[str, Any], 
+        thread_id: Optional[str] = None
+    ) -> None:
+        """
+        Add a new epic to the memory store.
+        
+        Args:
+            epic_id (str): Unique identifier for the epic.
+            content (Dict[str, Any]): Epic content and metadata.
+            thread_id (Optional[str]): Thread identifier, defaults to 'default'.
+        """
+        thread_key = thread_id or 'default'
+        
+        # Retrieve existing checkpoints or initialize
+        checkpoints = await self.get({"thread_id": thread_key}) or {}
+        
+        # Initialize epics list if not exists
+        if 'epics' not in checkpoints:
+            checkpoints['epics'] = {}
+        
+        # Add or update epic
+        checkpoints['epics'][epic_id] = {
+            'content': content,
+            'status': 'pending',
+            'created_at': datetime.utcnow().isoformat(),
+            'updated_at': datetime.utcnow().isoformat()
+        }
+        
+        # Save updated checkpoints
+        await self.put({"thread_id": thread_key}, checkpoints)
+    
+    async def update_epic_status(
+        self, 
+        epic_id: str, 
+        status: str, 
+        thread_id: Optional[str] = None
+    ) -> None:
+        """
+        Update the status of a specific epic.
+        
+        Args:
+            epic_id (str): Unique identifier for the epic.
+            status (str): New status for the epic.
+            thread_id (Optional[str]): Thread identifier, defaults to 'default'.
+        """
+        thread_key = thread_id or 'default'
+        
+        # Retrieve checkpoints
+        checkpoints = await self.get({"thread_id": thread_key})
+        
+        if checkpoints and 'epics' in checkpoints and epic_id in checkpoints['epics']:
+            checkpoints['epics'][epic_id]['status'] = status
+            checkpoints['epics'][epic_id]['updated_at'] = datetime.utcnow().isoformat()
+            
+            # Save updated checkpoints
+            await self.put({"thread_id": thread_key}, checkpoints)
+    
+    async def get_pending_epics(
+        self, 
+        thread_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve all pending epics for a given thread.
+        
+        Args:
+            thread_id (Optional[str]): Thread identifier, defaults to 'default'.
+        
+        Returns:
+            List[Dict[str, Any]]: List of pending epics.
+        """
+        thread_key = thread_id or 'default'
+        
+        # Retrieve checkpoints
+        checkpoints = await self.get({"thread_id": thread_key}) or {}
+        
+        # Return pending epics
+        return [
+            {'id': epic_id, **epic_data} 
+            for epic_id, epic_data in checkpoints.get('epics', {}).items() 
+            if epic_data.get('status') == 'pending'
+        ]
+    
+    async def clear_completed_epics(
+        self, 
+        thread_id: Optional[str] = None
+    ) -> None:
+        """
+        Remove completed epics from memory.
+        
+        Args:
+            thread_id (Optional[str]): Thread identifier, defaults to 'default'.
+        """
+        thread_key = thread_id or 'default'
+        
+        # Retrieve checkpoints
+        checkpoints = await self.get({"thread_id": thread_key}) or {}
+        
+        # Remove completed epics
+        if 'epics' in checkpoints:
+            checkpoints['epics'] = {
+                epic_id: epic_data 
+                for epic_id, epic_data in checkpoints['epics'].items() 
+                if epic_data.get('status') != 'completed'
+            }
+        
+        # Save updated checkpoints
+        await self.put({"thread_id": thread_key}, checkpoints)

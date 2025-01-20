@@ -80,6 +80,53 @@ poetry run pytest tests/
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+## TypeScript Analyzer and Error Fixing System
+
+### Overview
+
+The TypeScript Analyzer provides advanced error detection, categorization, and automatic fixing capabilities using Large Language Models (LLMs).
+
+### Features
+
+- **Error Understanding**: Categorize and analyze TypeScript errors
+- **Automatic Fix Generation**: Generate detailed instructions and code snippets for error resolution
+- **Intelligent Application**: Apply generated fixes to relevant files
+
+### Usage Example
+
+```python
+from analyzers.typescript_analyzer import TypeScriptAnalyzer
+from langchain.llms import OpenAI
+
+# Initialize the analyzer
+analyzer = TypeScriptAnalyzer()
+llm = OpenAI(temperature=0.3)
+
+# Analyze and fix an error
+error_message = "TypeError: Cannot read property 'x' of undefined"
+file_paths = ["/path/to/your/typescript/file.ts"]
+
+# Automatically generate and apply fixes
+analyzer.generate_and_apply_fixes(
+    error_message, 
+    file_paths, 
+    llm=llm
+)
+```
+
+### Error Fixing Workflow
+
+1. **Understand Error**: Categorize the error type and location
+2. **Generate Fix**: Create detailed instructions and code snippets
+3. **Apply Fix**: Modify files automatically
+
+### Dependencies
+
+- LangChain
+- OpenAI
+- Python 3.10+
+- Poetry for dependency management
+
 ## License
 
 Distributed under the MIT License. See `LICENSE` for more information.

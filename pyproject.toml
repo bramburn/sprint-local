@@ -5,25 +5,28 @@ description = "Python script to plan and modify code"
 authors = ["Bhavesh Ramburn <nitrogen@gmail.com>"]
 license = "Copyright 2025"
 readme = "README.md"
+packages = [
+    { include = "." }
+]
 
 [tool.poetry.scripts]
 test = "pytest"
 sprint = "cli_interface:cli"
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.13"
+python = ">=3.10,<3.13"
+numpy = ">=1.22.4,<2.0.0"
 langchain-community = "^0.3.14"
 faiss-cpu = "^1.9.0.post1"
-openai = "^1.59.7"
 langchain = "^0.3.14"
+openai = "^1.59.7"
+langchain-openai = "^0.3.0"
 pytest = "^8.3.4"
 pathspec = "^0.12.1"
 chardet = "^5.2.0"
 python-dotenv = "^1.0.1"
 tiktoken = "^0.8.0"
 sentence-transformers = "^3.3.1"
-numpy = "^2.2.1"
-langchain-openai = "^0.3.0"
 pyarrow = "^19.0.0"
 typing-extensions = "^4.12.2"
 scikit-learn = "^1.6.1"

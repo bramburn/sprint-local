@@ -1,7 +1,10 @@
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from llm_wrapper import LLMWrapper
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain_core.messages import SystemMessage
+from scanner import RepoScanner
+from pathlib import Path
 
 @dataclass
 class RefinedProblem:
@@ -45,48 +48,49 @@ class NavigatorTools:
     def __init__(self, llm: LLMWrapper):
         self.llm = llm
         self._init_prompts()
+        self.scanner = None
 
     def _init_prompts(self):
         """Initialize ChatPromptTemplates for all tools."""
         self.refine_problem_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at analyzing and refining problem descriptions."},
-            {"role": "user", "content": """Given this problem description: "{problem_description}"
-            
-            1. Analyze the description for missing details or ambiguities
-            2. Generate clarifying questions if needed
-            3. Provide a refined, detailed description
-            4. List specific requirements
-            
-            Format your response as JSON with these fields:
-            - refined_description: string
-            - clarifications: list of strings
-            - requirements: list of strings"""}
+            SystemMessage(content="You are an expert at analyzing and refining problem descriptions."),
+            HumanMessagePromptTemplate.from_template("""Given this problem description: "{problem_description}"
+
+1. Analyze the description for missing details or ambiguities
+2. Generate clarifying questions if needed
+3. Provide a refined, detailed description
+4. List specific requirements
+
+Format your response as JSON with these fields:
+- refined_description: string
+- clarifications: list of strings
+- requirements: list of strings""")
         ])
 
         self.analyze_risks_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at identifying and analyzing project risks."},
-            {"role": "user", "content": """Analyze this solution plan for potential risks: "{solution_plan}"
-            
-            Consider these risk categories:
-            1. Technical risks
-            2. Scalability risks
-            3. Security risks
-            4. Operational risks
-            5. Integration risks
-            
-            For each identified risk, provide:
-            - Risk name
-            - Severity (Low/Medium/High)
-            - Probability (Low/Medium/High)
-            - Impact description
-            - Mitigation strategy
-            
-            Format your response as a JSON list of risk objects."""}
+            SystemMessage(content="You are an expert at identifying and analyzing project risks."),
+            HumanMessagePromptTemplate.from_template("""Analyze this solution plan for potential risks: "{solution_plan}"
+
+Consider these risk categories:
+1. Technical risks
+2. Scalability risks
+3. Security risks
+4. Operational risks
+5. Integration risks
+
+For each identified risk, provide:
+- Risk name
+- Severity (Low/Medium/High)
+- Probability (Low/Medium/High)
+- Impact description
+- Mitigation strategy
+
+Format your response as a JSON list of risk objects.""")
         ])
 
         self.compare_plans_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at evaluating and comparing solution plans."},
-            {"role": "user", "content": """Compare and rank these solution plans:
+            SystemMessage(content="You are an expert at evaluating and comparing solution plans."),
+            HumanMessagePromptTemplate.from_template("""Compare and rank these solution plans:
 
 {plans_text}
 
@@ -95,20 +99,19 @@ Evaluate each plan based on:
 2. Scalability
 3. Maintainability
 4. Cost-effectiveness
-5. Time to implement
 
 For each plan provide:
-- Numerical score (0-10)
-- List of strengths
-- List of weaknesses
-- Reasoning for the score
+- Score (0-10)
+- Key strengths
+- Key weaknesses
+- Reasoning
 
-Format your response as a JSON list of plan evaluation objects."""}
+Format your response as a JSON list of evaluation objects.""")
         ])
 
         self.identify_constraints_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert at identifying technical constraints and limitations."},
-            {"role": "user", "content": """Analyze this problem description and identify technical constraints:
+            SystemMessage(content="You are an expert at identifying technical constraints and limitations."),
+            HumanMessagePromptTemplate.from_template("""Analyze this problem description and identify technical constraints:
 
 {problem_description}
 
@@ -125,12 +128,12 @@ For each constraint provide:
 - Impact on the solution
 - Possible mitigation options
 
-Format your response as a JSON list of constraint objects."""}
+Format your response as a JSON list of constraint objects.""")
         ])
 
         self.architecture_decision_prompt = ChatPromptTemplate.from_messages([
-            {"role": "system", "content": "You are an expert software architect."},
-            {"role": "user", "content": """Make an architecture decision for this problem:
+            SystemMessage(content="You are an expert software architect."),
+            HumanMessagePromptTemplate.from_template("""Make an architecture decision for this problem:
 
 Problem: {problem_description}
 
@@ -150,7 +153,27 @@ Provide:
 - Alternative options considered
 - Detailed rationale
 
-Format your response as a JSON object."""}
+Format your response as a JSON object.""")
+        ])
+
+        # Add new prompt for file identification
+        self.file_identification_prompt = ChatPromptTemplate.from_messages([
+            SystemMessage(content="You are an expert at analyzing error messages and identifying relevant files."),
+            HumanMessagePromptTemplate.from_template("""
+Given the following error message:
+{error_message}
+
+And the following list of files in the repository:
+{file_list}
+
+Please identify which files are most likely related to this error.
+Consider:
+1. Files mentioned directly in the error message
+2. Files that might contain related code based on the error type
+3. Files that might be imported or referenced by the affected code
+
+Return only the list of file paths, one per line, without any additional text.
+            """)
         ])
 
     async def refine_problem(self, problem_description: str) -> RefinedProblem:
@@ -345,4 +368,84 @@ Format your response as a JSON object with detailed breakdowns.
         try:
             return self.llm.parse_json(response)
         except Exception as e:
-            raise ValueError(f"Failed to parse LLM response: {e}") 
+            raise ValueError(f"Failed to parse LLM response: {e}")
+
+    def identify_relevant_files(self, error_message: str, repo_path: str) -> List[str]:
+        """
+        Identifies relevant files based on an error message.
+
+        Args:
+            error_message: The error message to analyze.
+            repo_path: The path to the repository.
+
+        Returns:
+            A list of relevant files.
+        """
+        all_files = self.get_all_files(repo_path)
+        llm_files = self.get_files_from_llm(error_message, all_files)
+        relevant_files = self.filter_relevant_files(llm_files, all_files)
+        return relevant_files
+
+    def get_all_files(self, repo_path: str) -> List[str]:
+        """
+        Retrieves a list of all files in the specified repository directory.
+
+        Args:
+            repo_path: The path to the repository.
+
+        Returns:
+            A list of all files in the repository.
+        """
+        if self.scanner is None or self.scanner.repo_path != Path(repo_path):
+            self.scanner = RepoScanner(repo_path)
+        
+        scanned_files = self.scanner.scan_files()
+        return [file['metadata']['relative_path'] for file in scanned_files]
+
+    def get_files_from_llm(self, error_message: str, all_files: List[str]) -> List[str]:
+        """
+        Gets a list of files from the LLM based on an error message.
+
+        Args:
+            error_message: The error message to analyze.
+            all_files: A list of all files in the repository.
+
+        Returns:
+            A list of files from the LLM.
+        """
+        # Format the file list for better readability
+        file_list = "\n".join(all_files)
+        
+        # Generate response using the prompt template
+        response = self.llm.generate_response(
+            self.file_identification_prompt,
+            {
+                "error_message": error_message,
+                "file_list": file_list
+            }
+        )
+        
+        if not response:
+            return []
+            
+        # Split response into lines and clean up
+        files = [line.strip() for line in response.split("\n") if line.strip()]
+        return files
+
+    def filter_relevant_files(self, llm_files: List[str], all_files: List[str]) -> List[str]:
+        """
+        Filters the list of files from the LLM to only include files that exist in the repository.
+
+        Args:
+            llm_files: A list of files from the LLM.
+            all_files: A list of all files in the repository.
+
+        Returns:
+            A list of relevant files.
+        """
+        # Convert to sets for efficient lookup
+        all_files_set = set(all_files)
+        
+        # Filter files that exist in the repository
+        relevant_files = [file for file in llm_files if file in all_files_set]
+        return relevant_files 

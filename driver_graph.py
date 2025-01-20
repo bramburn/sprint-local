@@ -9,6 +9,7 @@ from driver_nodes import (
     test_code_node,
     fix_code_node
 )
+from integrated_workflow import TestFixNode, ValidationNode
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,19 +37,31 @@ class DriverGraph:
         self.graph.add_node("analyze", static_analysis_node)
         self.graph.add_node("test", test_code_node)
         self.graph.add_node("fix", fix_code_node)
+        self.graph.add_node("test_fix", TestFixNode())
+        self.graph.add_node("validation", ValidationNode())
         
         # Add edges
         self.graph.add_edge("generate", "analyze")
         self.graph.add_edge("analyze", "test")
-        self.graph.add_edge("test", "fix")
+        self.graph.add_edge("test", "test_fix")
+        self.graph.add_edge("test_fix", "validation")
+        self.graph.add_edge("validation", "fix")
         
         # Add conditional edges
         self.graph.add_conditional_edges(
             "fix",
-            lambda x: "pass" if x.test_results.get("status") == "passed" else "fix",
+            lambda x: "pass" if x.test_results.get("status") == "passed" else "generate",
             {
                 "pass": END,
-                "fix": "generate"
+                "generate": "generate"
+            }
+        )
+        self.graph.add_conditional_edges(
+            "validation",
+            lambda x: "pass" if x.test_results.get("status") == "passed" else "retry",
+            {
+                "pass": END,
+                "retry": "test_fix"
             }
         )
         

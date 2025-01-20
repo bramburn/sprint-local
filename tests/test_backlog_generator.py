@@ -190,3 +190,58 @@ def test_comprehensive_backlog_generation():
     assert "Dependencies" in backlog or "Type" in backlog
     assert "Priority" in backlog
     assert "Complexity" in backlog
+
+def test_extract_errors():
+    generator = BacklogGenerator()
+    test_output = """
+    Running tests...
+    ERROR: SyntaxError in main.py, line 10
+    FAIL: AssertionError in test_utils.py, line 25
+    Exception: RuntimeError in database.py, line 42
+    Some other log message
+    """
+    
+    errors = generator.extract_errors(test_output)
+    
+    assert len(errors) == 3
+    assert "SyntaxError in main.py, line 10" in errors
+    assert "AssertionError in test_utils.py, line 25" in errors
+    assert "RuntimeError in database.py, line 42" in errors
+
+def test_categorize_errors():
+    generator = BacklogGenerator()
+    error_messages = [
+        "SyntaxError: invalid syntax in main.py",
+        "RuntimeError: memory allocation failed",
+        "LogicError: incorrect calculation in math module"
+    ]
+    
+    categorized_errors = generator.categorize_errors(error_messages)
+    
+    assert "syntax" in categorized_errors
+    assert "runtime" in categorized_errors
+    assert "logic" in categorized_errors
+    assert "resource" in categorized_errors
+    assert "unknown" in categorized_errors
+    
+    assert len(categorized_errors["syntax"]) > 0
+    assert len(categorized_errors["runtime"]) > 0
+
+def test_store_errors_in_memory():
+    generator = BacklogGenerator()
+    categorized_errors = {
+        "syntax": ["SyntaxError: invalid syntax"],
+        "runtime": ["RuntimeError: memory allocation failed"]
+    }
+    memory = {}
+    
+    generator.store_errors_in_memory(categorized_errors, memory)
+    
+    assert "temporary_epic_list" in memory
+    assert len(memory["temporary_epic_list"]) == 2
+    
+    # Check structure of stored errors
+    for error_entry in memory["temporary_epic_list"]:
+        assert "category" in error_entry
+        assert "message" in error_entry
+        assert error_entry["category"] in ["syntax", "runtime"]
