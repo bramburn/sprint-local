@@ -1,7 +1,5 @@
 from typing import Dict, Any, Optional, List
 import asyncio
-from navigator_graph import create_navigator_graph
-from driver_graph import create_driver_graph
 from memory import NavigatorMemorySaver
 import config
 import os
@@ -9,12 +7,15 @@ from backlog_generator import BacklogGenerator
 from pydantic import BaseModel
 from langchain.tools import ShellTool
 from langchain.llms import BaseLLM
-from src.analyzers.typescript_analyzer import generate_and_apply_fixes
+from analyzers.typescript_analyzer import TypeScriptAnalyzer
 import subprocess
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Debugging output
+print("integrated_workflow.py loaded")
 
 class IntegratedWorkflow:
     """
@@ -60,8 +61,9 @@ class IntegratedWorkflow:
         }
         
         try:
-            # Create Navigator graph
-            navigator_graph = create_navigator_graph(self.memory_saver)
+            # Local import to avoid circular dependency
+            from navigator_graph import create_navigator_graph
+            navigator_graph = create_navigator_graph()
             
             # Run Navigator to get implementation plan
             navigator_result = await navigator_graph.ainvoke({
@@ -81,7 +83,8 @@ class IntegratedWorkflow:
             if not all(key in navigator_result for key in required_keys):
                 raise ValueError("Navigator failed to generate a valid plan")
             
-            # Create Driver graph
+            # Local import to avoid circular dependency
+            from driver_graph import create_driver_graph
             driver_graph = create_driver_graph()
             
             # Run Driver to implement the solution
@@ -261,6 +264,7 @@ def run_workflow(
     Returns:
         Dict[str, Any]: The complete solution or error response.
     """
+    print(f"Running workflow for: {problem_description}")  # Debug: Log workflow start
     workflow = IntegratedWorkflow(storage_path)
     
     if workflow_type == "solution":
@@ -324,6 +328,7 @@ def run_workflow_with_test_cmd(
         return results
 
     except Exception as e:
+        print(f"Error in run_workflow_with_test_cmd: {str(e)}")  # Debug: Log error
         return {
             "error": str(e),
             "status": "failed",
@@ -362,7 +367,8 @@ def verify_fixes(
             logging.info(f"Fix attempt {attempt}/{max_attempts}")
             
             # Apply fixes
-            generate_and_apply_fixes(file_paths)
+            analyzer = TypeScriptAnalyzer()
+            analyzer.generate_and_apply_fixes(file_paths)
             
             # Re-verify
             response = llm.predict(f"Check for any errors in the following files after applying fixes: {', '.join(file_paths)}")
@@ -616,3 +622,7 @@ class ValidationNode:
                 'error': str(e)
             }
             return state
+
+def some_function():
+    from navigator_graph import create_navigator_graph  # Local import to avoid circular dependency
+    # ... existing code ...

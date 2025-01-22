@@ -24,7 +24,7 @@ class BacklogGenerator:
         except OSError:
             print("spaCy model not found. Installing...")
             import subprocess
-            subprocess.run(['python', '-m', 'spacy', 'download', 'en_core_web_sm'], check=True)
+            subprocess.run(['poetry', 'run', 'python', '-m', 'spacy', 'download', 'en_core_web_sm'], check=True)
             self.nlp = spacy.load('en_core_web_sm')
         
         self.config = config or {}
@@ -211,18 +211,22 @@ class BacklogGenerator:
         """
         Generate a comprehensive list of tasks with additional metadata.
         
-        :param parsed_prompt: Parsed prompt dictionary
-        :return: List of task dictionaries with rich metadata
+        Args:
+            parsed_prompt: Parsed prompt dictionary
+        
+        Returns:
+            List of task dictionaries with rich metadata
         """
         feature = parsed_prompt.get('feature', 'Unnamed Feature')
+        task_type = parsed_prompt.get('task_type', 'FEATURE')
         tasks = []
         
         # Use custom task templates if provided in config
-        custom_templates = self.config.get('backlog_task_templates')
+        templates = self.config.get('backlog_task_templates')
         
         # Adjust task templates based on task type
         type_specific_templates = {
-            'FEATURE': custom_templates or [
+            'FEATURE': templates or [
                 "Implement {feature}",
                 "Test {feature}",
                 "Document {feature}"
@@ -248,123 +252,119 @@ class BacklogGenerator:
             'REFACTORING': [
                 "Identify refactoring targets in {feature}",
                 "Refactor {feature} code",
-                "Write tests for refactored {feature}",
-                "Review and document refactoring of {feature}"
+                "Write tests for {feature}",
+                "Review {feature} changes"
             ]
         }
         
-        task_type = parsed_prompt.get('task_type', 'FEATURE')
-        templates = type_specific_templates.get(task_type, type_specific_templates['FEATURE'])
+        # Get templates for the current task type
+        current_templates = type_specific_templates.get(task_type, type_specific_templates['FEATURE'])
         
-        for template in templates:
-            task_text = template.format(feature=feature)
-            tasks.append({
-                'task': task_text,
-                'category': template.split()[0].lower(),
+        # Generate tasks using templates
+        for template in current_templates:
+            task = {
+                'task': template.format(feature=feature),
+                'category': task_type.lower(),
                 'feature': feature,
                 'type': task_type,
                 'priority': parsed_prompt.get('priority', 'MEDIUM'),
                 'complexity': parsed_prompt.get('complexity', 0.5),
                 'dependencies': parsed_prompt.get('dependencies', []),
-                'files': self._generate_files_section([{
-                    'file_name': feature,
-                    'purpose': 'Description of the file',
-                    'contents': 'Content of the file',
-                    'relationships': []
-                }]),
                 'estimated_effort': self._estimate_task_effort(parsed_prompt)
-            })
+            }
+            tasks.append(task)
         
         return tasks
 
     def _estimate_task_effort(self, parsed_prompt: Dict[str, Any]) -> Dict[str, int]:
         """
-        Estimate task effort in story points or hours.
+        Estimate task effort based on complexity and type.
         
-        :param parsed_prompt: Parsed prompt dictionary
-        :return: Estimated effort dictionary
+        Args:
+            parsed_prompt: Parsed prompt dictionary
+        
+        Returns:
+            Dictionary with story points and estimated hours
         """
         complexity = parsed_prompt.get('complexity', 0.5)
-        priority = parsed_prompt.get('priority', 'MEDIUM')
+        task_type = parsed_prompt.get('task_type', 'FEATURE')
         
-        effort_matrix = {
-            'LOW': {'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 5},
-            'MEDIUM': {'LOW': 2, 'MEDIUM': 3, 'HIGH': 5, 'CRITICAL': 8},
-            'HIGH': {'LOW': 3, 'MEDIUM': 5, 'HIGH': 8, 'CRITICAL': 13},
-            'CRITICAL': {'LOW': 5, 'MEDIUM': 8, 'HIGH': 13, 'CRITICAL': 21}
+        # Base effort multipliers for different task types
+        type_multipliers = {
+            'FEATURE': 1.0,
+            'BUGFIX': 0.7,
+            'IMPROVEMENT': 0.8,
+            'RESEARCH': 1.2,
+            'REFACTORING': 1.1
         }
         
-        base_effort = effort_matrix.get(priority, effort_matrix['MEDIUM'])
+        multiplier = type_multipliers.get(task_type, 1.0)
+        
+        # Calculate story points (1-13 scale)
+        story_points = max(1, min(13, int(complexity * 13 * multiplier)))
+        
+        # Calculate estimated hours (rough estimate)
+        estimated_hours = max(1, int(story_points * 4 * multiplier))
         
         return {
-            'story_points': round(base_effort.get('MEDIUM', 3) * complexity),
-            'estimated_hours': round(base_effort.get('MEDIUM', 3) * complexity * 4)
+            'story_points': story_points,
+            'estimated_hours': estimated_hours
         }
 
     def format_backlog(self, tasks: List[Dict[str, Any]], additional_sections: Dict[str, Any] = None) -> str:
         """
-        Format tasks into a comprehensive markdown backlog following the specified template.
+        Format tasks into a readable backlog document.
         
-        :param tasks: List of task dictionaries
-        :param additional_sections: Dictionary containing additional sections like Introduction, Assumptions, etc.
-        :return: Formatted backlog markdown
+        Args:
+            tasks: List of task dictionaries
+            additional_sections: Optional additional sections to include
+        
+        Returns:
+            Formatted backlog string
         """
-        backlog_lines = ["# Backlog\n"]
+        sections = ["# Backlog\n"]
         
-        # Introduction Section
-        if additional_sections and "Introduction" in additional_sections:
-            backlog_lines.append("## Introduction")
-            backlog_lines.append(f"{additional_sections['Introduction']}\n")
+        # Add tasks section
+        sections.append("## Tasks\n")
+        for task in tasks:
+            sections.append(f"### {task['task']}\n")
+            sections.append(f"- Category: {task.get('category', 'N/A')}")
+            sections.append(f"- Feature: {task.get('feature', 'N/A')}")
+            if 'estimated_effort' in task:
+                sections.append(f"- Story Points: {task['estimated_effort']['story_points']}")
+                sections.append(f"- Estimated Hours: {task['estimated_effort']['estimated_hours']}")
+            sections.append("")
         
-        # User Stories Section
-        backlog_lines.append("## User Stories")
-        for idx, task in enumerate(tasks, start=1):
-            backlog_lines.append(f"* **User Story {idx}**: {task['task']}")
-            backlog_lines.append(f"  + **Description**: {task['task']}")
-            backlog_lines.append(f"  + **Category**: {task.get('category', 'Uncategorized')}")
-            backlog_lines.append(f"  + **Feature**: {task.get('feature', 'Unnamed Feature')}")
-            backlog_lines.append(f"  + **Type**: {task.get('type', 'FEATURE')}")
-            backlog_lines.append(f"  + **Priority**: {task.get('priority', 'MEDIUM')}")
-            backlog_lines.append(f"  + **Complexity**: {task.get('complexity', 0.5)}")
-            backlog_lines.append(f"  + **Actions to Undertake**:")
-            
-            # Handle missing dependencies gracefully
-            dependencies = task.get('dependencies', [])
-            if dependencies:
-                for action in dependencies:
-                    backlog_lines.append(f"    - {action}")
-            else:
-                backlog_lines.append("    - No specific dependencies identified")
-            
-            backlog_lines.append(f"  + **References between Files**: {', '.join(dependencies)}")
-            backlog_lines.append(f"  + **Estimated Effort**:")
-            backlog_lines.append(f"    - Story Points: {task.get('estimated_effort', {}).get('story_points', 0)}")
-            backlog_lines.append(f"    - Estimated Hours: {task.get('estimated_effort', {}).get('estimated_hours', 0)}\n")
+        # Add additional sections if provided
+        if additional_sections:
+            for title, content in additional_sections.items():
+                sections.append(f"## {title}\n")
+                sections.append(f"{content}\n")
         
-        # List of Files being Created Section
-        if additional_sections and "List of Files being Created" in additional_sections:
-            backlog_lines.append("## List of Files being Created")
-            for idx, file in enumerate(additional_sections["List of Files being Created"], start=1):
-                backlog_lines.append(f"* **File {idx}**: {file['file_name']}")
-                backlog_lines.append(f"  + **Purpose**: {file['purpose']}")
-                backlog_lines.append(f"  + **Contents**: {file['contents']}")
-                backlog_lines.append(f"  + **Relationships**: {', '.join(file['relationships'])}\n")
-        
-        # Rest of the method remains the same
-        return "\n".join(backlog_lines)
+        return "\n".join(sections)
 
     def generate_backlog(self, prompt: str) -> str:
         """
-        Generate a comprehensive backlog from a prompt, including user stories, actions, and other details.
+        Generate a complete backlog from a prompt.
         
-        :param prompt: Input prompt describing the feature or task
-        :return: Formatted backlog
+        Args:
+            prompt: Input prompt describing the feature or task
+        
+        Returns:
+            Complete formatted backlog
         """
-        parsed_prompt = self.parse_prompt(prompt)
-        tasks = self.generate_tasks(parsed_prompt)
-        additional_sections = self.generate_additional_sections(parsed_prompt, tasks)
-        backlog = self.format_backlog(tasks, additional_sections)
-        return backlog
+        parsed = self.parse_prompt(prompt)
+        tasks = self.generate_tasks(parsed)
+        
+        # Generate additional sections
+        additional_sections = {
+            'Feature Description': parsed['feature'],
+            'Type': parsed['task_type'],
+            'Priority': parsed['priority'],
+            'Complexity': f"{parsed['complexity']:.2f}"
+        }
+        
+        return self.format_backlog(tasks, additional_sections)
 
     def _generate_user_stories(self, parsed_prompt) -> str:
         # Generate user stories based on the parsed prompt
@@ -449,77 +449,66 @@ class BacklogGenerator:
 
     def extract_errors(self, test_output: str) -> List[str]:
         """
-        Extracts individual error messages from the test output.
-
+        Extract error messages from test output.
+        
         Args:
-            test_output: The raw output from the test command.
-
+            test_output: Raw test output string
+        
         Returns:
-            A list of extracted error messages.
+            List of extracted error messages
         """
-        import re
-        error_messages = []
-        # Regex pattern to match error messages, adjustable based on test output format
-        pattern = r"(ERROR:|FAIL:|Exception:)\s*(.+?)(?=\n[A-Z]+:|$)"
-        matches = re.findall(pattern, test_output, re.DOTALL | re.MULTILINE)
-        
-        for match in matches:
-            error_messages.append(match[1].strip())
-        
-        return error_messages
+        errors = []
+        for line in test_output.split('\n'):
+            line = line.strip()
+            if any(error_type in line for error_type in ['ERROR:', 'FAIL:', 'Exception:']):
+                errors.append(line)
+        return errors
 
     def categorize_errors(self, error_messages: List[str]) -> Dict[str, List[str]]:
         """
-        Categorizes error messages using spaCy and linguistic analysis.
-
+        Categorize error messages by type.
+        
         Args:
-            error_messages: A list of error messages.
-
+            error_messages: List of error messages
+        
         Returns:
-            A dictionary where keys are categories and values are lists of error messages.
+            Dictionary mapping error categories to lists of errors
         """
         categories = {
-            "syntax": [],
-            "runtime": [],
-            "logic": [],
-            "resource": [],
-            "unknown": []
+            'syntax': [],
+            'runtime': [],
+            'logic': [],
+            'resource': [],
+            'unknown': []
         }
-
-        for message in error_messages:
-            doc = self.nlp(message)
-            
-            # Determine category based on linguistic analysis
-            if any(token.dep_ in ['nsubj', 'dobj'] and token.pos_ == 'NOUN' for token in doc):
-                if 'syntax' in message.lower():
-                    categories['syntax'].append(message)
-                elif 'resource' in message.lower() or 'memory' in message.lower() or 'disk' in message.lower():
-                    categories['resource'].append(message)
-                elif 'runtime' in message.lower():
-                    categories['runtime'].append(message)
-                elif any(token.pos_ == 'VERB' and token.dep_ == 'ROOT' for token in doc):
-                    categories['logic'].append(message)
-                else:
-                    categories['unknown'].append(message)
+        
+        for error in error_messages:
+            if 'SyntaxError' in error:
+                categories['syntax'].append(error)
+            elif 'RuntimeError' in error:
+                categories['runtime'].append(error)
+            elif any(x in error for x in ['LogicError', 'AssertionError']):
+                categories['logic'].append(error)
+            elif any(x in error for x in ['MemoryError', 'ResourceError']):
+                categories['resource'].append(error)
             else:
-                categories['unknown'].append(message)
-
+                categories['unknown'].append(error)
+        
         return categories
 
     def store_errors_in_memory(self, categorized_errors: Dict[str, List[str]], memory: Dict) -> None:
         """
-        Stores the categorized errors in the workflow's memory.
-
-        Args:
-            categorized_errors: A dictionary of categorized error messages.
-            memory: The workflow's memory object.
-        """
-        if "temporary_epic_list" not in memory:
-            memory["temporary_epic_list"] = []
+        Store categorized errors in memory for later analysis.
         
-        for category, messages in categorized_errors.items():
-            for message in messages:
-                memory["temporary_epic_list"].append({
-                    "category": category,
-                    "message": message
+        Args:
+            categorized_errors: Dictionary of categorized errors
+            memory: Memory dictionary to store errors in
+        """
+        memory['temporary_epic_list'] = []
+        
+        for category, errors in categorized_errors.items():
+            for error in errors:
+                memory['temporary_epic_list'].append({
+                    'category': category,
+                    'message': error
                 })

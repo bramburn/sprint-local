@@ -10,81 +10,78 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class LLMWrapper:
-    def __init__(self, provider=None, model_name=None):
+    def __init__(self, provider=None, model_name=None, base_url=None, api_key=None):
         """
-        Initialize the LLM wrapper with the specified provider and model.
+        Initialize the LLM wrapper with custom configurations.
         
-        :param provider: LLM provider (default from config)
-        :param model_name: Specific model name (default from config)
+        :param provider: LLM provider (default: "openai")
+        :param model_name: Specific model name (default: "gpt-3.5-turbo")
+        :param base_url: Custom base URL for the LLM
+        :param api_key: API key for the custom base URL
         """
-        # Use config values if not explicitly provided
-        self.provider = provider or config.LLM_PROVIDER
-        self.model_name = model_name or config.LLM_MODEL_NAME
+        self.provider = provider or "openai"
+        self.model_name = model_name or "gpt-3.5-turbo"
+        self.base_url = base_url
+        self.api_key = api_key
+        self.llm = self._initialize_llm()
         
         # Set API key from environment or config
         os.environ['OPENAI_API_KEY'] = config.OPENAI_API_KEY
-        
-        # Initialize the appropriate LLM based on provider
-        if self.provider.lower() == 'openai':
-            self.llm = ChatOpenAI(
-                model_name=self.model_name,
-                temperature=0.7  # Adjustable creativity
-            )
+    
+    def _initialize_llm(self):
+        """
+        Initialize the LLM with custom configurations.
+        """
+        if self.provider == "openai":
+            if self.base_url and self.api_key:
+                return ChatOpenAI(
+                    model=self.model_name,
+                    openai_api_key=self.api_key,
+                    openai_api_base=self.base_url
+                )
+            else:
+                return ChatOpenAI(model=self.model_name, openai_api_key=config.openai_key)
         else:
             raise ValueError(f"Unsupported LLM provider: {self.provider}")
     
-    def generate_response(self, prompt_template, input_variables):
+    def generate_response(self, prompt, parameters):
         """
         Generate a response using the specified prompt template.
         
-        :param prompt_template: String template for the prompt
-        :param input_variables: Dictionary of variables to fill the template
+        :param prompt: Prompt template
+        :param parameters: Dictionary of parameters to fill the template
         :return: Generated response from the LLM or None if error
         """
         try:
             # Validate inputs
-            if not prompt_template or not isinstance(prompt_template, str):
-                logger.error("Invalid prompt template")
+            if not prompt or not isinstance(prompt, str):
+                logger.error("Invalid prompt")
                 return None
                 
-            if not isinstance(input_variables, dict):
-                logger.error("Input variables must be a dictionary")
+            if not isinstance(parameters, dict):
+                logger.error("Parameters must be a dictionary")
                 return None
                 
-            # Create a prompt template
-            prompt = PromptTemplate(
-                input_variables=list(input_variables.keys()),
-                template=prompt_template
-            )
-            
-            # Create an LLM chain
-            chain = LLMChain(
-                llm=self.llm,
-                prompt=prompt,
-                verbose=True
-            )
-            
             # Generate response
-            response = chain.invoke(input_variables)
+            response = self.llm(prompt, **parameters)
             return response["text"]
             
         except Exception as e:
             logger.error(f"Error generating LLM response: {e}")
             return None
     
-    def validate_api_key(self):
+    def validate_configuration(self):
         """
-        Validate the API key by making a simple test call.
+        Validate the LLM configuration by making a test call.
         
-        :return: Boolean indicating API key validity
+        :return: Boolean indicating if the configuration is valid
         """
         try:
-            # Try a simple test prompt
             test_response = self.generate_response(
-                "Say 'valid' if this is a valid API key test: {input}",
+                "Test prompt to validate configuration: {input}",
                 {"input": "test"}
             )
-            return test_response is not None and "valid" in test_response.lower()
+            return test_response is not None
         except Exception as e:
-            logger.error(f"API key validation failed: {e}")
+            logger.error(f"Configuration validation failed: {e}")
             return False

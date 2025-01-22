@@ -1,0 +1,238 @@
+**Requirement Analysis:**
+- **Overview:** The system needs a new feature that uses Langchain to interact with an LLM. This feature will take a user prompt, apply it to a template, send it to the LLM, save the response to a text file, and then send the LLM response back to the LLM. The context of the conversation should be maintained by adding to the original prompt. The user should be able to customize the LLM's base URL, API key, model, and the path to the text file. The prompt templates should also be editable.
+- **System Context:** The system includes a CLI, integrated workflows, analyzers, tools, a backlog generator, and a vector store. The new feature will interact with the LLM wrapper and file system.
+- **Assumptions:** The user has a valid API key for the custom LLM base URL. The LLM follows the OpenAI API format. The system has the necessary libraries installed (langchain, openai, etc.).
+
+**File Structure:**
+- **Affected Components:**
+  - **Component:** LLM Interaction
+    - **Files:**
+      - **File Path:** `llm_wrapper.py`
+      - **Purpose:** Handles communication with the LLM, including setting the base URL, API key, and model.
+    - **Files:**
+      - **File Path:** `tools/file_editor.py`
+      - **Purpose:** Used to edit the prompt templates.
+    - **Files:**
+      -  **File Path:** `tools/file_creator.py`
+      - **Purpose:** Used to create the .txt file if it doesn't exist.
+  - **Component:** CLI Interface
+    - **Files:**
+      - **File Path:** `cli_interface.py`
+      - **Purpose:** Provides the command-line interface for the new feature.
+  - **Component:** New File
+    - **Files:**
+      - **File Path:** `langchain_file.py`
+      - **Purpose:** Contains the core logic for the new feature.
+
+**EPICs:**
+- **EPIC-1:**
+  - **Title:** Implement Core Langchain LLM Interaction Feature
+  - **Description:** Develop the core logic for the Langchain-based LLM interaction, including prompt templating, LLM communication, and response saving.
+  - **Affected Files:**
+    - `llm_wrapper.py`
+    - `langchain_file.py`
+  - **User Stories:**
+    - **US-1.1:**
+      - **Role:** Developer
+      - **Goal:** I want to send a prompt to the LLM using a template so that I can structure my queries effectively.
+      - **Benefit:** Ensures consistent and structured communication with the LLM.
+      - **Acceptance Criteria:**
+        - The system can load a prompt template.
+        - The system can apply the user's prompt to the template.
+        - The system can send the templated prompt to the LLM.
+      - **Technical Notes:**
+        - Use Langchain's PromptTemplate for templating.
+    - **US-1.2:**
+      - **Role:** Developer
+      - **Goal:** I want to save the LLM response to a text file so that I can keep a record of the conversation.
+      - **Benefit:** Allows for easy review and tracking of LLM interactions.
+      - **Acceptance Criteria:**
+        - The system can save the LLM response to a specified .txt file.
+        - The system appends new responses to the end of the file.
+      - **Technical Notes:**
+        - Use Python's file I/O operations for saving responses.
+    - **US-1.3:**
+      - **Role:** Developer
+      - **Goal:** I want to send the LLM's response back to the LLM so that I can continue the conversation with context.
+      - **Benefit:** Enables contextual conversations with the LLM.
+      - **Acceptance Criteria:**
+        - The system can take the LLM's response and send it back to the LLM.
+        - The system adds the new response to the original prompt for context.
+      - **Technical Notes:**
+        - Maintain a conversation history by appending to the original prompt.
+  - **Dependencies:**
+    - Langchain library is installed and configured.
+    - OpenAI library is installed and configured.
+
+- **EPIC-2:**
+  - **Title:** Implement Custom LLM Configuration
+  - **Description:** Allow users to set a custom base URL, API key, and model for the LLM.
+  - **Affected Files:**
+    - `llm_wrapper.py`
+    - `cli_interface.py`
+  - **User Stories:**
+    - **US-2.1:**
+      - **Role:** User
+      - **Goal:** I want to set a custom base URL for the LLM so that I can use a different LLM provider.
+      - **Benefit:** Provides flexibility in choosing LLM providers.
+      - **Acceptance Criteria:**
+        - The system can accept a custom base URL for the LLM.
+        - The system uses the custom base URL when communicating with the LLM.
+      - **Technical Notes:**
+        - Modify the LLM initialization in `llm_wrapper.py` to accept a base URL.
+    - **US-2.2:**
+      - **Role:** User
+      - **Goal:** I want to provide my API key for the custom base URL so that I can authenticate with the LLM provider.
+      - **Benefit:** Allows secure access to the LLM.
+      - **Acceptance Criteria:**
+        - The system can accept an API key for the custom base URL.
+        - The system uses the API key when communicating with the LLM.
+      - **Technical Notes:**
+        - Modify the LLM initialization in `llm_wrapper.py` to accept an API key.
+    - **US-2.3:**
+      - **Role:** User
+      - **Goal:** I want to set the model I want to use with the LLM so that I can choose the best model for my task.
+      - **Benefit:** Allows for model selection based on task requirements.
+      - **Acceptance Criteria:**
+        - The system can accept a model name for the LLM.
+        - The system uses the specified model when communicating with the LLM.
+      - **Technical Notes:**
+        - Modify the LLM initialization in `llm_wrapper.py` to accept a model name.
+  - **Dependencies:**
+    - The `llm_wrapper.py` file is updated to handle custom configurations.
+
+- **EPIC-3:**
+  - **Title:** Implement Customizable Prompt Templates and File Path
+  - **Description:** Allow users to set the path to the .txt file and edit the prompt templates.
+  - **Affected Files:**
+    - `tools/file_editor.py`
+    - `tools/file_creator.py`
+    - `cli_interface.py`
+    - `langchain_file.py`
+  - **User Stories:**
+    - **US-3.1:**
+      - **Role:** User
+      - **Goal:** I want to set the path to the .txt file so that I can save the conversation in a specific location.
+      - **Benefit:** Provides control over where the conversation history is stored.
+      - **Acceptance Criteria:**
+        - The system can accept a custom path for the .txt file.
+        - The system saves the conversation history to the specified path.
+      - **Technical Notes:**
+        - Modify the file saving logic in `langchain_file.py` to use the custom path.
+    - **US-3.2:**
+      - **Role:** User
+      - **Goal:** I want to edit the prompt templates so that I can customize the prompts sent to the LLM.
+      - **Benefit:** Allows for flexible and tailored interactions with the LLM.
+      - **Acceptance Criteria:**
+        - The system can load the prompt templates from a file.
+        - The system can use the `file_editor.py` to edit the prompt templates.
+      - **Technical Notes:**
+        - Use `tools/file_editor.py` to edit the prompt template files.
+  - **Dependencies:**
+    - The `tools/file_editor.py` is functional.
+    - The `tools/file_creator.py` is functional.
+
+```language:llm_wrapper.py
+// ... existing code ...
+class LLMWrapper:
+    def __init__(self, provider=None, model_name=None, base_url=None, api_key=None):
+        self.provider = provider or "openai"
+        self.model_name = model_name or "gpt-3.5-turbo"
+        self.base_url = base_url
+        self.api_key = api_key
+        self.llm = self._initialize_llm()
+// ... existing code ...
+    def _initialize_llm(self):
+        if self.provider == "openai":
+            if self.base_url and self.api_key:
+                return ChatOpenAI(
+                    model=self.model_name,
+                    openai_api_key=self.api_key,
+                    openai_api_base=self.base_url
+                )
+            else:
+                return ChatOpenAI(model=self.model_name, openai_api_key=config.openai_key)
+        else:
+            raise ValueError(f"Unsupported LLM provider: {self.provider}")
+// ... existing code ...
+```
+```language:tools/file_editor.py
+// ... existing code ...
+class FileEditorInput(BaseModel):
+    file_path: str = Field(..., description="Path to the file to be edited")
+    new_content: str = Field(..., description="New content to write to the file")
+    backup: Optional[bool] = Field(default=True, description="Create a backup of the original file")
+// ... existing code ...
+```
+```language:tools/file_creator.py
+// ... existing code ...
+class FileCreatorInput(BaseModel):
+    file_path: str = Field(..., description="Absolute or relative path to the file to be created")
+    content: Optional[str] = Field(default="", description="Content to write to the file")
+// ... existing code ...
+```
+```language:cli_interface.py
+// ... existing code ...
+@click.command()
+@click.option('--prompt', '-p', required=True, help='The prompt to send to the LLM')
+@click.option('--base-url', '-b', default=None, help='Custom base URL for the LLM')
+@click.option('--api-key', '-k', default=None, help='API key for the custom base URL')
+@click.option('--model', '-m', default=None, help='Model to use with the LLM')
+@click.option('--text-path', '-t', default='conversation.txt', help='Path to the .txt file to save the conversation')
+@click.option('--template-path', '-tp', default='prompt_template.txt', help='Path to the prompt template file')
+def langchain_command(prompt: str, base_url: Optional[str], api_key: Optional[str], model: Optional[str], text_path: str, template_path: str):
+    from langchain_file import LangchainFile
+    langchain_file = LangchainFile(base_url=base_url, api_key=api_key, model_name=model, text_path=text_path, template_path=template_path)
+    response = langchain_file.run(prompt)
+    click.echo(response)
+// ... existing code ...
+```
+```language:langchain_file.py
+ 1: from llm_wrapper import LLMWrapper
+ 2: from tools.file_editor import FileEditorTool, FileEditorInput
+ 3: from tools.file_creator import FileCreatorTool
+ 4: from langchain.prompts import PromptTemplate
+ 5: import os
+ 6: 
+ 7: class LangchainFile:
+ 8:     def __init__(self, base_url=None, api_key=None, model_name=None, text_path='conversation.txt', template_path='prompt_template.txt'):
+ 9:         self.llm_wrapper = LLMWrapper(base_url=base_url, api_key=api_key, model_name=model_name)
+10:         self.text_path = text_path
+11:         self.template_path = template_path
+12:         self.file_editor = FileEditorTool()
+13:         self.file_creator = FileCreatorTool()
+14:         self._ensure_file_exists(self.text_path)
+15:         self._ensure_file_exists(self.template_path, "This is a sample prompt template: {prompt}")
+16: 
+17:     def _ensure_file_exists(self, file_path, default_content=""):
+18:         if not os.path.exists(file_path):
+19:             self.file_creator._run(file_path, default_content)
+20: 
+21:     def _load_template(self):
+22:         with open(self.template_path, 'r') as f:
+23:             template_content = f.read()
+24:         return PromptTemplate.from_template(template_content)
+25: 
+26:     def run(self, prompt):
+27:         prompt_template = self._load_template()
+28:         formatted_prompt = prompt_template.format(prompt=prompt)
+29:         llm_response = self.llm_wrapper.generate_response(formatted_prompt, {})
+30: 
+31:         if llm_response:
+32:             with open(self.text_path, 'a') as f:
+33:                 f.write(f"\nUser: {prompt}\nLLM: {llm_response}\n")
+34: 
+35:             second_prompt = f"{formatted_prompt}\n{llm_response}"
+36:             second_llm_response = self.llm_wrapper.generate_response(second_prompt, {})
+37: 
+38:             if second_llm_response:
+39:                 with open(self.text_path, 'a') as f:
+40:                     f.write(f"\nLLM (second response): {second_llm_response}\n")
+41:                 return f"Responses saved to {self.text_path}"
+42:             else:
+43:                 return f"First response saved to {self.text_path}, but second response failed."
+44:         else:
+45:             return "LLM response failed."
+```
+These changes implement the core logic for the new feature, including LLM interaction, custom configurations, and file handling. The `llm_wrapper.py` file is updated to handle custom base URLs and API keys. The `cli_interface.py` file is updated to include the new command and options. The `langchain_file.py` file contains the core logic for the new feature. The `tools/file_editor.py` and `tools/file_creator.py` are used to edit the prompt templates and create the .txt file if it doesn't exist.
+

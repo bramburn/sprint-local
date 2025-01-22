@@ -1,11 +1,13 @@
 import click
 import json
 from typing import Optional
-from integrated_workflow import run_workflow, IntegratedWorkflow
 import os
 import config
 import asyncio
 from backlog_generator import BacklogGenerator
+
+# Debugging output
+print("cli_interface.py loaded")
 
 def format_output(data: dict, format_json: bool = False) -> str:
     """Format the output data either as JSON or human-readable text."""
@@ -53,14 +55,19 @@ def solve(
     storage_path: Optional[str] = None
 ):
     """Generate a solution for the given problem description."""
+    print(f"Solving problem: {problem_description}")  # Debug: Log problem description
     try:
+        # Local import to avoid circular dependency
+        from integrated_workflow import run_workflow
         result = run_workflow(
             problem_description=problem_description,
             thread_id=thread_id,
             storage_path=storage_path or os.path.join(config.STORAGE_PATH, "navigator")
         )
+        print(f"Result: {result}")  # Debug: Log result
         click.echo(format_output(result, json))
     except Exception as e:
+        print(f"Error in solve: {str(e)}")  # Debug: Log error
         click.echo(f"Error: {str(e)}", err=True)
         exit(1)
 
@@ -70,6 +77,8 @@ def solve(
 def state(thread_id: str, json: bool = False):
     """Retrieve the state of a specific workflow thread."""
     try:
+        # Local import to avoid circular dependency
+        from integrated_workflow import IntegratedWorkflow
         workflow = IntegratedWorkflow()
         state = asyncio.run(workflow.get_workflow_state(thread_id))
         if state:
@@ -85,6 +94,8 @@ def state(thread_id: str, json: bool = False):
 def clear(thread_id: Optional[str] = None):
     """Clear workflow state for a specific thread or all threads."""
     try:
+        # Local import to avoid circular dependency
+        from integrated_workflow import IntegratedWorkflow
         workflow = IntegratedWorkflow()
         asyncio.run(workflow.clear_workflow_state(thread_id))
         if thread_id:
@@ -114,6 +125,41 @@ def generate_backlog(prompt: str, output: Optional[str] = None):
         click.echo(f"Backlog saved to {output}")
     else:
         click.echo(backlog)
+
+@click.command()
+@click.option('--prompt', '-p', required=True, help='The prompt to send to the LLM')
+@click.option('--base-url', '-b', default=None, help='Custom base URL for the LLM')
+@click.option('--api-key', '-k', default=None, help='API key for the custom base URL')
+@click.option('--model', '-m', default=None, help='Model to use with the LLM')
+@click.option('--text-path', '-t', default='conversation.txt', help='Path to the .txt file to save the conversation')
+@click.option('--template-path', '-tp', default='prompt_template.txt', help='Path to the prompt template file')
+@click.option('--edit-template', '-e', is_flag=True, help='Edit the prompt template before running')
+def langchain_command(prompt: str, base_url: Optional[str], api_key: Optional[str], model: Optional[str], text_path: str, template_path: str, edit_template: bool):
+    """
+    Execute the Langchain LLM interaction with custom configurations.
+    """
+    from langchain_file import LangchainFile
+    try:
+        langchain_file = LangchainFile(
+            base_url=base_url,
+            api_key=api_key,
+            model_name=model,
+            text_path=text_path,
+            template_path=template_path
+        )
+
+        if edit_template:
+            new_content = click.edit(editor='vim')
+            if new_content:
+                langchain_file.edit_template(new_content)
+
+        response = langchain_file.run(prompt)
+        click.echo(response)
+    except Exception as e:
+        click.echo(f"Error: {str(e)}", err=True)
+        exit(1)
+
+cli.add_command(langchain_command, name='langchain')
 
 if __name__ == '__main__':
     cli() 

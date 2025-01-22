@@ -53,7 +53,41 @@ result = patcher._run("example.txt", patch_content)
 print(result)  # File patched successfully
 ```
 
-## Running Tests
+### CLI Commands
+
+You can use the Sprint CLI to run various commands for automated workflows. Here are the available commands:
+
+1. **Solve a Problem**
+   ```bash
+   python cli_interface.py solve "Your problem description" --thread-id "unique-thread-id" --json
+   ```
+   This command generates a solution for the given problem description.
+
+2. **Retrieve Workflow State**
+   ```bash
+   python cli_interface.py state "unique-thread-id" --json
+   ```
+   This command retrieves the state of a specific workflow thread.
+
+3. **Clear Workflow State**
+   ```bash
+   python cli_interface.py clear "unique-thread-id"
+   ```
+   This command clears the workflow state for a specific thread or all threads if no thread ID is provided.
+
+4. **Display CLI Version**
+   ```bash
+   python cli_interface.py version
+   ```
+   This command displays the current version of the Sprint CLI.
+
+5. **Generate a Backlog**
+   ```bash
+   python cli_interface.py generate_backlog "Your prompt" --output "backlog.txt"
+   ```
+   This command generates a detailed backlog from a given prompt and saves it to the specified output file.
+
+### Running Tests
 
 ```bash
 poetry run pytest tests/

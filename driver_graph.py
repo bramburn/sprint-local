@@ -9,11 +9,13 @@ from driver_nodes import (
     test_code_node,
     fix_code_node
 )
-from integrated_workflow import TestFixNode, ValidationNode
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Debugging output
+print("driver_graph.py loaded")
 
 class DriverGraph:
     """
@@ -37,6 +39,9 @@ class DriverGraph:
         self.graph.add_node("analyze", static_analysis_node)
         self.graph.add_node("test", test_code_node)
         self.graph.add_node("fix", fix_code_node)
+        
+        # Local import to avoid circular dependency
+        from integrated_workflow import TestFixNode, ValidationNode
         self.graph.add_node("test_fix", TestFixNode())
         self.graph.add_node("validation", ValidationNode())
         
@@ -132,4 +137,7 @@ def create_driver_graph(memory_saver: Optional[Any] = None) -> DriverGraph:
     Returns:
         DriverGraph: Configured Driver graph instance.
     """
+    # Local import to avoid circular dependency
+    from integrated_workflow import TestFixNode, ValidationNode
+
     return DriverGraph(memory_saver=memory_saver)
