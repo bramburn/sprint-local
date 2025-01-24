@@ -32,6 +32,12 @@ class Config:
         self.OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
         self.LLM_MODEL_NAME = os.getenv('LLM_MODEL_NAME', 'gpt-4o-mini')
         self.LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')
+        self.OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+
+        # New configuration settings
+        self.chunk_size = int(os.getenv('CHUNK_SIZE', 1000))  # Default chunk size
+        self.chunk_overlap = int(os.getenv('CHUNK_OVERLAP', 200))  # Default chunk overlap
+        self.embedding_model = os.getenv('EMBEDDING_MODEL', 'text-embedding-3-large')
 
         # Backlog generation configuration
         self.BACKLOG_TASK_TEMPLATES = [

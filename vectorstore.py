@@ -4,6 +4,7 @@ from pathlib import Path
 import logging
 
 from langchain_community.vectorstores import FAISS
+
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -134,7 +135,7 @@ class CodeVectorStore:
     def __init__(self, 
                  api_key: Optional[str] = None, 
                  storage_path: Optional[str] = None,
-                 embedding_model: str = "text-embedding-ada-002",
+                 embedding_model: str = "text-embedding-3-large",
                  chunk_size: int = 1000,
                  chunk_overlap: int = 200):
         """
@@ -151,7 +152,8 @@ class CodeVectorStore:
         self.api_key = api_key or config.openai_key
         
         # Initialize embeddings
-        self.embeddings = OpenAIEmbeddings(api_key=self.api_key)
+        self.embedding_model = embedding_model
+        self.embeddings = OpenAIEmbeddings(api_key=self.api_key, model=self.embedding_model)
         
         # Text processor for document chunking
         self.processor = CodeProcessor()
@@ -164,7 +166,6 @@ class CodeVectorStore:
         self.storage_path = storage_path or os.path.join(
             os.path.dirname(__file__), 'vector_index'
         )
-        self.embedding_model = embedding_model
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         
@@ -197,17 +198,16 @@ class CodeVectorStore:
         for doc in documents:
             try:
                 metadata = doc['metadata']
-                file_path = Path(metadata['path'])
+                file_path = Path(metadata['file_path'])
+                relative_path = metadata.get('relative_path', str(file_path))
                 
-                # Convert to relative path if repo_path is provided
-                if repo_path:
-                    try:
-                        relative_path = file_path.relative_to(repo_path)
-                        metadata['relative_path'] = str(relative_path)
-                        metadata['absolute_path'] = str(file_path)  # Keep absolute path for reference
-                    except ValueError as e:
-                        logger.warning(f"File {file_path} is not within repository {repo_path}: {e}")
-                        metadata['relative_path'] = str(file_path)
+                # Update metadata with scanner-specific fields
+                metadata.update({
+                    'relative_path': relative_path,
+                    'chunk_index': metadata.get('chunk_index', 0),
+                    'total_chunks': metadata.get('total_chunks', 1),
+                    'file_size': metadata.get('file_size', 0)
+                })
                 
                 processed_docs.append({
                     'content': doc['content'],
@@ -230,6 +230,7 @@ class CodeVectorStore:
                 # Get document content and path
                 content = doc['content']
                 metadata = doc['metadata']
+                file_path = Path(metadata['file_path'])
                 
                 logger.debug(f"Processing document with path: {file_path}")
                 
@@ -244,14 +245,18 @@ class CodeVectorStore:
                         'variables': code_structure.variables
                     }
                 elif file_path.suffix in ['.js', '.ts', '.jsx', '.tsx']:
-                    code_structure = self.typescript_analyzer.analyze_code(content, str(file_path))
-                    # Convert CodeStructure to dict
-                    code_metadata = {
-                        'classes': code_structure.classes,
-                        'functions': code_structure.functions,
-                        'imports': code_structure.imports,
-                        'variables': code_structure.variables
-                    }
+                    try:
+                        code_structure = self.typescript_analyzer.analyze_code(content, str(file_path))
+                        # Convert CodeStructure to dict
+                        code_metadata = {
+                            'classes': code_structure.classes,
+                            'functions': code_structure.functions,
+                            'imports': code_structure.imports,
+                            'variables': code_structure.variables
+                        }
+                    except Exception as e:
+                        logger.error(f"Error analyzing code for {file_path}: {e}")
+                        code_metadata = {}
                 else:
                     code_metadata = {}
                 

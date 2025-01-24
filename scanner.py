@@ -187,7 +187,8 @@ class RepoScanner:
                     'chunk_index': i,
                     'total_chunks': len(sections),
                     'file_path': str(file_path),
-                    'relative_path': str(file_path.relative_to(self.repo_path))
+                    'relative_path': str(file_path.relative_to(self.repo_path)),
+                    'file_size': file_path.stat().st_size
                 }
             }
             chunks.append(chunk)

@@ -22,6 +22,7 @@ instance
 __pycache__/
 *.py[cod]
 *$py.class
+vector_store/
 
 # C extensions
 *.so

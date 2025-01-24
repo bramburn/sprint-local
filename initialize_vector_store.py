@@ -1,5 +1,7 @@
 from pathlib import Path
+from config import Config
 from scanner import RepoScanner
+from vectorstore import CodeVectorStore
 
 def validate_path(path: str, path_type: str) -> Path:
     """
@@ -46,27 +48,27 @@ def initialize_vector_store(vector_store_location: str, repo_folder: str) -> Non
     
     if not scanned_files:
         raise ValueError("No JavaScript files found in the repository")
-    for file in scanned_files:
-        print(f"File Path: {file['metadata']['path']}, Size: {file['metadata']['size']} bytes")
-        relative_path = file['metadata']['relative_path']
-        print(f"Relative File Path: {relative_path}")
-    # # Initialize the CodeVectorStore with configuration
-    # config = Config()
-    # vector_store = CodeVectorStore(
-    #     storage_path=str(vector_store_path),
-    #     embedding_model=config.embedding_model,
-    #     chunk_size=config.chunk_size,
-    #     chunk_overlap=config.chunk_overlap
-    # )
+    # for file in scanned_files:
+    #     print(f"File Path: {file['metadata']['file_path']}, Size: {file['metadata']['file_size']} bytes")
+    #     relative_path = file['metadata']['relative_path']
+    #     print(f"Relative File Path: {relative_path}")
+    # Initialize the CodeVectorStore with configuration
+    config = Config()
+    vector_store = CodeVectorStore(
+        storage_path=str(vector_store_path),
+        embedding_model=config.embedding_model,
+        chunk_size=config.chunk_size,
+        chunk_overlap=config.chunk_overlap
+    )
     
     # # Add scanned documents to the vector store with repository path
-    # vector_store.add_documents(
-    #     [{"content": file['content'], "metadata": file['metadata']} for file in scanned_files],
-    #     repo_path=repo_path
-    # )
+    vector_store.add_documents(
+        [{"content": file['content'], "metadata": file['metadata']} for file in scanned_files],
+        repo_path=repo_path
+    )
     
     # # Save the vector store
-    # vector_store.save()
+    vector_store.save()
     print(f"Vector store successfully created and saved at: {vector_store_path}")
 
 def main():
