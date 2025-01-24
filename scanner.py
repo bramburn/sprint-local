@@ -3,6 +3,7 @@ import pathspec
 import chardet
 from pathlib import Path
 from typing import List, Dict, Any
+from fnmatch import fnmatch
 
 # Import code analyzers
 from analyzers.python_analyzer import PythonAnalyzer
@@ -16,6 +17,8 @@ class RepoScanner:
         repo_path (Path): Root path of the repository to scan
         gitignore_spec (pathspec.PathSpec): Compiled gitignore patterns
         supported_extensions (List[str]): File extensions to include in scanning
+        inclusion_patterns (List[str]): File patterns to include in scanning
+        ignore_patterns (List[str]): File patterns to exclude from scanning
     """
     
     SUPPORTED_EXTENSIONS = [
@@ -50,6 +53,10 @@ class RepoScanner:
         # Initialize code analyzers
         self.python_analyzer = PythonAnalyzer()
         self.typescript_analyzer = TypeScriptAnalyzer()
+        
+        # Initialize inclusion and ignore patterns
+        self.inclusion_patterns = []
+        self.ignore_patterns = []
     
     def _load_gitignore(self) -> pathspec.PathSpec:
         """
@@ -94,9 +101,48 @@ class RepoScanner:
             result = chardet.detect(raw_data)
         return result['encoding'] or 'utf-8'
     
+    def set_inclusion_patterns(self, patterns: List[str]):
+        """
+        Set file inclusion patterns for scanning.
+        
+        Args:
+            patterns (List[str]): List of file patterns to include
+        """
+        self.inclusion_patterns = patterns
+    
+    def set_ignore_list(self, ignore_patterns: List[str]):
+        """
+        Set file ignore patterns for scanning.
+        
+        Args:
+            ignore_patterns (List[str]): List of file patterns to exclude
+        """
+        self.ignore_patterns = ignore_patterns
+    
+    def _should_process_file(self, file_path: Path) -> bool:
+        """
+        Determine if a file should be processed based on inclusion and ignore patterns.
+        
+        Args:
+            file_path (Path): Path to the file
+            
+        Returns:
+            bool: True if file should be processed, False otherwise
+        """
+        # Check inclusion patterns
+        if self.inclusion_patterns:
+            if not any(fnmatch(file_path.name, pattern) for pattern in self.inclusion_patterns):
+                return False
+        
+        # Check ignore patterns
+        if any(fnmatch(file_path.name, pattern) for pattern in self.ignore_patterns):
+            return False
+        
+        return True
+    
     def scan_files(self, max_file_size: int = 1_000_000) -> List[Dict[str, Any]]:
         """
-        Scan repository files, respecting gitignore and file type rules.
+        Scan repository files, respecting gitignore, file type rules, and user patterns.
         
         Args:
             max_file_size (int): Maximum file size in bytes to process
@@ -110,16 +156,11 @@ class RepoScanner:
             for filename in files:
                 file_path = Path(root) / filename
                 
-                # Skip files larger than max_file_size
-                if file_path.stat().st_size > max_file_size:
-                    continue
-                
-                # Skip files not matching supported extensions
-                if not any(file_path.suffix == ext for ext in self.SUPPORTED_EXTENSIONS):
-                    continue
-                
-                # Skip ignored files
-                if self._is_file_ignored(file_path):
+                # Skip files based on size, extension, gitignore, and user patterns
+                if (file_path.stat().st_size > max_file_size or
+                    not any(file_path.suffix == ext for ext in self.SUPPORTED_EXTENSIONS) or
+                    self._is_file_ignored(file_path) or
+                    not self._should_process_file(file_path)):
                     continue
                 
                 try:

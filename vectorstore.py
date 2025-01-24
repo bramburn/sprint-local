@@ -133,13 +133,19 @@ class CodeVectorStore:
     
     def __init__(self, 
                  api_key: Optional[str] = None, 
-                 storage_path: Optional[str] = None):
+                 storage_path: Optional[str] = None,
+                 embedding_model: str = "text-embedding-ada-002",
+                 chunk_size: int = 1000,
+                 chunk_overlap: int = 200):
         """
         Initialize vector store with embeddings and storage configuration.
         
         Args:
             api_key (Optional[str]): OpenAI API key
             storage_path (Optional[str]): Path to store/load vector index
+            embedding_model (str): OpenAI embedding model
+            chunk_size (int): Maximum tokens per chunk
+            chunk_overlap (int): Number of tokens to overlap between chunks
         """
         # Use provided API key or from config
         self.api_key = api_key or config.openai_key
@@ -158,6 +164,9 @@ class CodeVectorStore:
         self.storage_path = storage_path or os.path.join(
             os.path.dirname(__file__), 'vector_index'
         )
+        self.embedding_model = embedding_model
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
         
         # FAISS vector store
         self.store = None
@@ -165,38 +174,62 @@ class CodeVectorStore:
     
     def add_documents(self, documents: List[Dict[str, Any]], repo_path: Optional[Path] = None) -> None:
         """
-        Add documents to vector store with code structure analysis.
+        Add documents to the vector store, converting paths to relative if repo_path is provided.
         
         Args:
-            documents (List[Dict[str, Any]]): List of documents to embed
-            repo_path (Optional[Path]): Repository root path for relative path calculation
-        
+            documents (List[Dict[str, Any]]): List of documents to add
+            repo_path (Optional[Path]): Repository root path for relative path conversion
+            
         Raises:
-            ValueError: If document format is invalid
+            ValueError: If documents are in invalid format
         """
         if not documents:
             logger.warning("No documents provided to add_documents")
             return
 
         # Validate document format
-        invalid_docs = [doc for doc in documents if 'content' not in doc]
+        invalid_docs = [doc for doc in documents if 'content' not in doc or 'metadata' not in doc]
         if invalid_docs:
-            raise ValueError("Invalid document format: missing 'content' field")
+            raise ValueError("Invalid document format: missing 'content' or 'metadata' field")
+
+        processed_docs = []
+        
+        for doc in documents:
+            try:
+                metadata = doc['metadata']
+                file_path = Path(metadata['path'])
+                
+                # Convert to relative path if repo_path is provided
+                if repo_path:
+                    try:
+                        relative_path = file_path.relative_to(repo_path)
+                        metadata['relative_path'] = str(relative_path)
+                        metadata['absolute_path'] = str(file_path)  # Keep absolute path for reference
+                    except ValueError as e:
+                        logger.warning(f"File {file_path} is not within repository {repo_path}: {e}")
+                        metadata['relative_path'] = str(file_path)
+                
+                processed_docs.append({
+                    'content': doc['content'],
+                    'metadata': metadata
+                })
+                
+            except Exception as e:
+                logger.error(f"Error processing document {doc.get('path', 'unknown')}: {e}")
+                continue
+
+        if not processed_docs:
+            logger.warning("No valid documents to add to vector store")
+            return
 
         splits = []
         metadatas = []
         
-        for doc in documents:
+        for doc in processed_docs:
             try:
                 # Get document content and path
-                content = doc.get('content')
-                if not content:
-                    logger.warning(f"Skipping document with no content: {doc}")
-                    continue
-
-                # Get file path from metadata or document
-                metadata = doc.get('metadata', {})
-                file_path = Path(metadata.get('path', doc.get('path', 'unknown')))
+                content = doc['content']
+                metadata = doc['metadata']
                 
                 logger.debug(f"Processing document with path: {file_path}")
                 
@@ -238,8 +271,8 @@ class CodeVectorStore:
                 logger.debug(f"Successfully processed document: {file_path}")
                 
             except Exception as e:
-                logger.error(f"Error processing document {doc.get('path', 'unknown')}: {str(e)}")
-                raise
+                logger.error(f"Error processing document {file_path}: {str(e)}")
+                continue
         
         if not splits:
             logger.warning("No valid documents to add to vector store")
