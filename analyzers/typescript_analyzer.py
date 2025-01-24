@@ -3,11 +3,10 @@ import subprocess
 import os
 import shutil
 import tempfile
-from typing import Dict, List, Optional
+from typing import List, Optional
 from dataclasses import dataclass, field
-from langchain.llms import BaseLLM, OpenAI
-from langchain.prompts import PromptTemplate
-from langchain.output_parsers import StructuredOutputParser, ResponseSchema
+from langchain.llms import BaseLLM
+from langchain_openai import OpenAI
 
 from .base import BaseAnalyzer
 

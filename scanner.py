@@ -2,8 +2,9 @@ import os
 import pathspec
 import chardet
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from fnmatch import fnmatch
+import re
 
 # Import code analyzers
 from analyzers.python_analyzer import PythonAnalyzer
@@ -140,6 +141,59 @@ class RepoScanner:
         
         return True
     
+    def _chunk_file_content(self, content: str, file_path: Path) -> List[Dict[str, Any]]:
+        """
+        Chunk file content into logical sections based on code structure.
+        
+        Args:
+            content (str): File content to chunk
+            file_path (Path): Path to the file being processed
+            
+        Returns:
+            List[Dict[str, Any]]: List of chunks with metadata
+        """
+        chunks = []
+        extension = file_path.suffix.lower()
+        
+        # Define chunking strategies based on file type
+        if extension == '.py':
+            # Split Python files at class and function definitions
+            pattern = r'(?<=\n)(?:(?:class|def)\s+\w+.*:)'
+        elif extension in ['.js', '.ts', '.jsx', '.tsx']:
+            # Split JavaScript/TypeScript files at function and class definitions
+            pattern = r'(?<=\n)(?:(?:class|function)\s+\w+.*\{)'
+        else:
+            # Default strategy: split by lines
+            pattern = None
+
+        if pattern:
+            # Split content at logical breakpoints
+            sections = re.split(pattern, content)
+            # Recombine split patterns with their sections
+            sections = [sections[i] + (sections[i+1] if i+1 < len(sections) else '') 
+                       for i in range(0, len(sections), 2)]
+        else:
+            # Fallback: split into fixed-size chunks
+            max_chunk_size = 1000  # lines
+            lines = content.split('\n')
+            sections = ['\n'.join(lines[i:i+max_chunk_size]) 
+                       for i in range(0, len(lines), max_chunk_size)]
+
+        # Create chunks with metadata
+        for i, section in enumerate(sections):
+            chunk = {
+                'content': section,
+                'metadata': {
+                    'chunk_index': i,
+                    'total_chunks': len(sections),
+                    'file_path': str(file_path),
+                    'relative_path': str(file_path.relative_to(self.repo_path))
+                }
+            }
+            chunks.append(chunk)
+        
+        return chunks
+
     def scan_files(self, max_file_size: int = 1_000_000) -> List[Dict[str, Any]]:
         """
         Scan repository files, respecting gitignore, file type rules, and user patterns.
@@ -167,32 +221,15 @@ class RepoScanner:
                     # Detect file encoding
                     encoding = self._detect_file_encoding(file_path)
                     
-                    # Read file content and track line numbers
+                    # Read file content
                     with open(file_path, 'r', encoding=encoding) as f:
-                        lines = f.readlines()
-                        content = ''.join(lines)
-                        line_numbers = list(range(1, len(lines) + 1))
+                        content = f.read()
                     
-                    # Analyze file content
-                    file_metadata = {
-                        'path': str(file_path),
-                        'relative_path': str(file_path.relative_to(self.repo_path)),
-                        'size': file_path.stat().st_size,
-                        'extension': file_path.suffix,
-                        'line_count': len(lines),
-                        'line_numbers': line_numbers
-                    }
+                    # Chunk file content
+                    chunks = self._chunk_file_content(content, file_path)
                     
-                    # Perform language-specific analysis
-                    if file_path.suffix == '.py':
-                        file_metadata.update(self.python_analyzer.analyze(content))
-                    elif file_path.suffix in ['.ts', '.tsx', '.js', '.jsx']:
-                        file_metadata.update(self.typescript_analyzer.analyze(content))
-                    
-                    scanned_files.append({
-                        'content': content,
-                        'metadata': file_metadata
-                    })
+                    # Add chunks to scanned files
+                    scanned_files.extend(chunks)
                 
                 except Exception as e:
                     # Log or handle file processing errors

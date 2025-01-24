@@ -1,7 +1,4 @@
-import os
 from pathlib import Path
-from config import Config
-from vectorstore import CodeVectorStore
 from scanner import RepoScanner
 
 def validate_path(path: str, path_type: str) -> Path:
@@ -41,38 +38,43 @@ def initialize_vector_store(vector_store_location: str, repo_folder: str) -> Non
     
     # Initialize the RepoScanner with the repository path
     scanner = RepoScanner(str(repo_path))
-    scanner.set_inclusion_patterns(['*.js'])  # Include only .js files
+    scanner.set_inclusion_patterns(['*.js', '*.ts', '*.tsx', '*.jsx'])  # Include only .js files
+    scanner.set_ignore_list(['node_modules/','*.test.ts'])
     
     # Scan for files
     scanned_files = scanner.scan_files()
     
     if not scanned_files:
         raise ValueError("No JavaScript files found in the repository")
+    for file in scanned_files:
+        print(f"File Path: {file['metadata']['path']}, Size: {file['metadata']['size']} bytes")
+        relative_path = file['metadata']['relative_path']
+        print(f"Relative File Path: {relative_path}")
+    # # Initialize the CodeVectorStore with configuration
+    # config = Config()
+    # vector_store = CodeVectorStore(
+    #     storage_path=str(vector_store_path),
+    #     embedding_model=config.embedding_model,
+    #     chunk_size=config.chunk_size,
+    #     chunk_overlap=config.chunk_overlap
+    # )
     
-    # Initialize the CodeVectorStore with configuration
-    config = Config()
-    vector_store = CodeVectorStore(
-        storage_path=str(vector_store_path),
-        embedding_model=config.embedding_model,
-        chunk_size=config.chunk_size,
-        chunk_overlap=config.chunk_overlap
-    )
+    # # Add scanned documents to the vector store with repository path
+    # vector_store.add_documents(
+    #     [{"content": file['content'], "metadata": file['metadata']} for file in scanned_files],
+    #     repo_path=repo_path
+    # )
     
-    # Add scanned documents to the vector store with repository path
-    vector_store.add_documents(
-        [{"content": file['content'], "metadata": file['metadata']} for file in scanned_files],
-        repo_path=repo_path
-    )
-    
-    # Save the vector store
-    vector_store.save()
+    # # Save the vector store
+    # vector_store.save()
     print(f"Vector store successfully created and saved at: {vector_store_path}")
 
 def main():
     try:
         # Get user input for paths
-        vector_store_location = input("Enter the vector store location: ").strip()
-        repo_folder = input("Enter the repository folder path: ").strip()
+        # vector_store_location = input("Enter the vector store location: ").strip()
+        vector_store_location = "C:/dev/sprint_app/sprint-py/vector_store/code/"
+        repo_folder = "C:/dev/repomix"
         
         # Initialize and save the vector store
         initialize_vector_store(vector_store_location, repo_folder)

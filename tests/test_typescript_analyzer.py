@@ -2,7 +2,7 @@ import unittest
 import os
 import tempfile
 from unittest.mock import MagicMock, patch
-from langchain.llms import OpenAI
+from langchain_openai import OpenAI
 from analyzers import TypeScriptAnalyzer
 import pytest
 from unittest.mock import Mock
