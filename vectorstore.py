@@ -10,8 +10,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 
 from config import config
-from analyzers.python_analyzer import PythonAnalyzer
-from analyzers.typescript_analyzer import TypeScriptAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -158,10 +156,6 @@ class CodeVectorStore:
         # Text processor for document chunking
         self.processor = CodeProcessor()
         
-        # Initialize analyzers
-        self.python_analyzer = PythonAnalyzer()
-        self.typescript_analyzer = TypeScriptAnalyzer()
-        
         # Vector store configuration
         self.storage_path = storage_path or os.path.join(
             os.path.dirname(__file__), 'vector_index'
@@ -175,49 +169,35 @@ class CodeVectorStore:
     
     def add_documents(self, documents: List[Dict[str, Any]], repo_path: Optional[Path] = None) -> None:
         """
-        Add documents to the vector store, converting paths to relative if repo_path is provided.
+        Add documents to the vector store.
         
         Args:
-            documents (List[Dict[str, Any]]): List of documents to add
-            repo_path (Optional[Path]): Repository root path for relative path conversion
-            
-        Raises:
-            ValueError: If documents are in invalid format
+            documents (List[Dict[str, Any]]): List of documents with content and metadata
+            repo_path (Optional[Path]): Repository root path for relative paths
         """
         if not documents:
-            logger.warning("No documents provided to add_documents")
+            logger.warning("No documents provided to add to vector store")
             return
-
-        # Validate document format
-        invalid_docs = [doc for doc in documents if 'content' not in doc or 'metadata' not in doc]
-        if invalid_docs:
-            raise ValueError("Invalid document format: missing 'content' or 'metadata' field")
-
+            
         processed_docs = []
-        
         for doc in documents:
             try:
-                metadata = doc['metadata']
-                file_path = Path(metadata['file_path'])
-                relative_path = metadata.get('relative_path', str(file_path))
+                content = doc.get('content', '')
+                metadata = doc.get('metadata', {})
                 
-                # Update metadata with scanner-specific fields
-                metadata.update({
-                    'relative_path': relative_path,
-                    'chunk_index': metadata.get('chunk_index', 0),
-                    'total_chunks': metadata.get('total_chunks', 1),
-                    'file_size': metadata.get('file_size', 0)
-                })
-                
+                if not content or not metadata:
+                    logger.warning(f"Invalid document format: {doc}")
+                    continue
+                    
                 processed_docs.append({
-                    'content': doc['content'],
+                    'content': content,
                     'metadata': metadata
                 })
                 
             except Exception as e:
-                logger.error(f"Error processing document {doc.get('path', 'unknown')}: {e}")
+                logger.error(f"Error processing document: {str(e)}")
                 continue
-
+                
         if not processed_docs:
             logger.warning("No valid documents to add to vector store")
             return
@@ -234,39 +214,10 @@ class CodeVectorStore:
                 
                 logger.debug(f"Processing document with path: {file_path}")
                 
-                # Analyze code based on file extension
-                if file_path.suffix == '.py':
-                    code_structure = self.python_analyzer.analyze_code(content, str(file_path))
-                    # Convert CodeStructure to dict
-                    code_metadata = {
-                        'classes': code_structure.classes,
-                        'functions': code_structure.functions,
-                        'imports': code_structure.imports,
-                        'variables': code_structure.variables
-                    }
-                elif file_path.suffix in ['.js', '.ts', '.jsx', '.tsx']:
-                    try:
-                        code_structure = self.typescript_analyzer.analyze_code(content, str(file_path))
-                        # Convert CodeStructure to dict
-                        code_metadata = {
-                            'classes': code_structure.classes,
-                            'functions': code_structure.functions,
-                            'imports': code_structure.imports,
-                            'variables': code_structure.variables
-                        }
-                    except Exception as e:
-                        logger.error(f"Error analyzing code for {file_path}: {e}")
-                        code_metadata = {}
-                else:
-                    code_metadata = {}
-                
-                # Merge code metadata with document metadata
-                merged_metadata = {**metadata, **code_metadata}
-                
                 # Process document into chunks
                 document_chunks = self.processor.process_file(
                     file_path, 
-                    metadata=merged_metadata, 
+                    metadata=metadata, 
                     repo_path=repo_path
                 )
                 

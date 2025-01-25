@@ -7,7 +7,6 @@ from fnmatch import fnmatch
 import re
 
 # Import code analyzers
-from analyzers.python_analyzer import PythonAnalyzer
 from analyzers.typescript_analyzer import TypeScriptAnalyzer
 
 class RepoScanner:
@@ -30,34 +29,21 @@ class RepoScanner:
     
     def __init__(self, repo_path: str):
         """
-        Initialize the RepoScanner with a repository path.
-
+        Initialize repository scanner.
+        
         Args:
-            repo_path (str): Path to the repository to scan
-
-        Raises:
-            FileNotFoundError: If the repository path does not exist
-            ValueError: If the path exists but is not a directory
+            repo_path (str): Path to repository root
         """
-        # Convert to Path object and get absolute path
         self.repo_path = Path(repo_path).resolve()
-
-        # Validate repository path
-        if not self.repo_path.exists():
-            raise FileNotFoundError(f"Repository path does not exist: {self.repo_path}")
-        if not self.repo_path.is_dir():
-            raise ValueError(f"Path exists but is not a directory: {self.repo_path}")
-
-        # Load gitignore rules
-        self.gitignore_spec = self._load_gitignore()
-
-        # Initialize code analyzers
-        self.python_analyzer = PythonAnalyzer()
+        self.ignore_patterns = []
+        self.inclusion_patterns = ["*.ts", "*.js", "*.jsx", "*.tsx"]  # Default to TypeScript files
         self.typescript_analyzer = TypeScriptAnalyzer()
         
-        # Initialize inclusion and ignore patterns
-        self.inclusion_patterns = []
-        self.ignore_patterns = []
+        # Load .gitignore if it exists
+        gitignore_path = self.repo_path / '.gitignore'
+        if gitignore_path.exists():
+            with open(gitignore_path, 'r', encoding='utf-8') as f:
+                self.ignore_patterns.extend(line.strip() for line in f if line.strip())
     
     def _load_gitignore(self) -> pathspec.PathSpec:
         """

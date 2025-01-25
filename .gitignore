@@ -10,6 +10,7 @@ build
 .coverage
 .cache
 nosetests.xml
+instructions/
 coverage.xml
 *.egg-info
 local_settings.py
@@ -200,3 +201,6 @@ node_modules/
 *.js[on]
 repomix.config.json
 repo-output.md
+
+# Ignore TypeScript analyzer files if applicable
+# .ts_analyzer_config.json  # Example entry

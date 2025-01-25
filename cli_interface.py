@@ -135,8 +135,7 @@ def langchain_command(prompt: str):
     """
     from langchain_file import LangchainFile
     try:
-        langchain_file = LangchainFile(
-          
+        langchain_file = LangchainFile(     
            
         )
 

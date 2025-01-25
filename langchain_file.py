@@ -203,6 +203,10 @@ class LangchainFile:
         ) as f:
             template_prompt = f.read()
         return PromptTemplate.from_template(template_prompt)
+      
+    def _write_line(self, line):
+        with open(self.text_path, "a") as f:
+            f.write(line)
 
     def run(self, prompt):
         """
@@ -244,6 +248,11 @@ class LangchainFile:
 
         prompt, parser = self._get_structured_epic()
         chain = prompt | self.llm | parser
+        if isinstance(epic_response, AIMessage):
+          epic_response = epic_response.content
+        else:
+          epic_response = epic_response
+        self._write_line(f"\nUser: {prompt}\nLLM: {epic_response}\n")
         structured_output = chain.invoke({"query": epic_response})
 
         if isinstance(structured_output, AIMessage):
@@ -253,13 +262,13 @@ class LangchainFile:
         # check if we have more than one epic
         count = 1
         backlog = []
-        backlog = []  # Initialize an array to store backlog items
 
         # get backlog template
         backlog_template = self._load_backlog_template()
 
         if isinstance(content["epics"], list):
             for epic in content["epics"]:
+                self._write_line(f"\n\n\nEpic {count}\n")
 
                 backlog_prompt = f"Please create a detailed step-by-step instructions for Epic {count}. "
 
@@ -281,13 +290,8 @@ class LangchainFile:
                     content = content.content
                 else:
                     content = content
-                backlog.append(content)
+                self._write_line(f"\nBacklog: {content}\n")
                 count += 1
-        final_backlog_text = "\n\n".join(backlog)
-        # Save conversation
-        with open(self.text_path, "a") as f:
-            f.write(
-                f"\nUser: {prompt}\nLLM: {epic_response}\n \n\n Backlog: {final_backlog_text}"
-            )
+        self._write_line(f"\n\n\nFinished\n")
 
         return epic_response

@@ -66,7 +66,7 @@ def main():
         # Load vector store from configured location
         vector_store_location = os.path.join(
             os.path.dirname(__file__), 
-            'vector_store','code'
+            'vector_store','current'
         )
         vector_store = load_vector_store(vector_store_location)
         
