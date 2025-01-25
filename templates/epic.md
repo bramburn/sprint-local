@@ -92,5 +92,4 @@ You are an expert in breaking down complex software requirements into detailed E
 
 **Variables:**
 - **Requirement:** {user_requirement}
-- **System Context:** {system_context}
-- **Additional Context:** {component_list}
+

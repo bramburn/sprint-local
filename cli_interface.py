@@ -128,30 +128,19 @@ def generate_backlog(prompt: str, output: Optional[str] = None):
 
 @click.command()
 @click.option('--prompt', '-p', required=True, help='The prompt to send to the LLM')
-@click.option('--base-url', '-b', default=None, help='Custom base URL for the LLM')
-@click.option('--api-key', '-k', default=None, help='API key for the custom base URL')
-@click.option('--model', '-m', default=None, help='Model to use with the LLM')
-@click.option('--text-path', '-t', default='conversation.txt', help='Path to the .txt file to save the conversation')
-@click.option('--template-path', '-tp', default='prompt_template.txt', help='Path to the prompt template file')
-@click.option('--edit-template', '-e', is_flag=True, help='Edit the prompt template before running')
-def langchain_command(prompt: str, base_url: Optional[str], api_key: Optional[str], model: Optional[str], text_path: str, template_path: str, edit_template: bool):
+
+def langchain_command(prompt: str):
     """
-    Execute the Langchain LLM interaction with custom configurations.
+    Execute the Langchain LLM interaction.
     """
     from langchain_file import LangchainFile
     try:
         langchain_file = LangchainFile(
-            base_url=base_url,
-            api_key=api_key,
-            model_name=model,
-            text_path=text_path,
-            template_path=template_path
+          
+           
         )
 
-        if edit_template:
-            new_content = click.edit(editor='vim')
-            if new_content:
-                langchain_file.edit_template(new_content)
+        
 
         response = langchain_file.run(prompt)
         click.echo(response)
