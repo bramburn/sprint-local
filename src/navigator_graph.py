@@ -2,11 +2,11 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph.state import CompiledStateGraph
 from typing import Dict, Optional, Any
 
-from navigator_state import NavigatorState
-from navigator_nodes import NavigatorNodes
-from memory import NavigatorMemorySaver
+from .navigator_state import NavigatorState
+from .navigator_nodes import NavigatorNodes
+from .memory import NavigatorMemorySaver
 from langchain_openai import ChatOpenAI
-from integrated_workflow import TestExecutionNode, ErrorAnalysisNode
+from .integrated_workflow import TestExecutionNode, ErrorAnalysisNode
 
 class NavigatorGraph:
     """

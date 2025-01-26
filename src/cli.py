@@ -1,5 +1,5 @@
 import click
-from integrated_workflow import run_workflow_with_test_cmd
+from .integrated_workflow import run_workflow_with_test_cmd
 
 @click.command()
 @click.option('--test-cmd', required=True, help='The command to run tests in the repo.')

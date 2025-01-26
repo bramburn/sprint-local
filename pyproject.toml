@@ -6,7 +6,7 @@ authors = ["Bhavesh Ramburn <nitrogen@gmail.com>"]
 license = "Copyright 2025"
 readme = "README.md"
 packages = [
-    { include = "." }
+    { include = "src", from = "." }
 ]
 
 [tool.poetry.scripts]

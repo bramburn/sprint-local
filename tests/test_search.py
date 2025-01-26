@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from search import CodeSearch, SearchResult
-from vectorstore import CodeVectorStore
+from src.vectorstore import CodeVectorStore
 
 class MockVectorStore:
     """Mock vector store for testing search functionality."""

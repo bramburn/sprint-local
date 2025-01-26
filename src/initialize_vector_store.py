@@ -1,7 +1,7 @@
 from pathlib import Path
-from config import Config
-from scanner import RepoScanner
-from src.vectorstore import CodeVectorStore
+from .config import Config
+from .scanner import RepoScanner
+from .vectorstore import CodeVectorStore
 import os
 import click
 from typing import Optional
@@ -28,7 +28,9 @@ def validate_path(path: str, path_type: str) -> Path:
 
 
 @click.command()
-@click.option('--name', help='Name of the vector store')
+@click.argument('vector_store_location', type=click.Path())
+@click.argument('repo_folder', type=click.Path(exists=True))
+@click.option('--name', help='Name of the vector store', default=None)
 def initialize_vector_store(vector_store_location: str, repo_folder: str, name: Optional[str] = None) -> None:
     """
     Initialize and save a vector store with TypeScript files from a repository.
@@ -51,7 +53,7 @@ def initialize_vector_store(vector_store_location: str, repo_folder: str, name: 
 
     # Initialize the RepoScanner with the repository path
     scanner = RepoScanner(str(repo_path))
-    scanner.set_inclusion_patterns(["*.ts", "*.js", "*.jsx", "*.tsx"])  # Include only TypeScript files
+    scanner.set_inclusion_patterns(["*.ts", "*.js", "*.jsx", "*.tsx","*.py"])  # Include only TypeScript files
     scanner.set_ignore_list(
         [
             "templates/",
@@ -110,18 +112,8 @@ def initialize_vector_store(vector_store_location: str, repo_folder: str, name: 
 
 
 def main():
-    try:
-        # Get user input for paths
-        # vector_store_location = input("Enter the vector store location: ").strip()
-        vector_store_location = "C:/dev/sprint_app/sprint-py/vector_store/current/"
-        repo_folder = "C:/dev/sprint_app/sprint-py"
-
-        # Initialize and save the vector store
-        initialize_vector_store(vector_store_location, repo_folder)
-
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        exit(1)
+    """Entry point for the CLI."""
+    initialize_vector_store()
 
 
 if __name__ == "__main__":

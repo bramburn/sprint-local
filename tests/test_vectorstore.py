@@ -3,7 +3,7 @@ import sys
 import logging
 import pytest
 from pathlib import Path
-from vectorstore import CodeProcessor, CodeVectorStore
+from src.vectorstore import CodeProcessor, CodeVectorStore
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

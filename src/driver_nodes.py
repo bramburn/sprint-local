@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Any
 import ast
 import re
-from models import DriverState, PlanInfo, StaticAnalysisResult, TestResult, CodeStructure
+from .models import DriverState, PlanInfo, TestResult, CodeStructure
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

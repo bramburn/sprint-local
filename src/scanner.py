@@ -41,6 +41,9 @@ class RepoScanner:
         if gitignore_path.exists():
             with open(gitignore_path, 'r', encoding='utf-8') as f:
                 self.ignore_patterns.extend(line.strip() for line in f if line.strip())
+        
+        # Initialize gitignore_spec
+        self.gitignore_spec = self._load_gitignore()
     
     def _load_gitignore(self) -> pathspec.PathSpec:
         """
@@ -76,15 +79,27 @@ class RepoScanner:
         
         Args:
             file_path (Path): Path to the file
-        
+    
         Returns:
             str: Detected file encoding
         """
-        with open(file_path, 'rb') as file:
-            raw_data = file.read(10000)  # Read first 10KB
-            result = chardet.detect(raw_data)
-        return result['encoding'] or 'utf-8'
-    
+        try:
+            with open(file_path, 'rb') as file:
+                raw_data = file.read(10000)  # Read first 10KB
+                result = chardet.detect(raw_data)
+        
+            # Fallback to UTF-8 if detection fails or returns None
+            encoding = result['encoding'] or 'utf-8'
+        
+            # Validate and normalize encoding
+            try:
+                with open(file_path, 'r', encoding=encoding) as _:
+                    return encoding
+            except (UnicodeDecodeError, LookupError):
+                return 'utf-8'
+        except Exception:
+            return 'utf-8'
+
     def set_inclusion_patterns(self, patterns: List[str]):
         """
         Set file inclusion patterns for scanning.
@@ -113,6 +128,27 @@ class RepoScanner:
         Returns:
             bool: True if file should be processed, False otherwise
         """
+        # Absolute path checks
+        absolute_path = file_path.resolve()
+        
+        # Explicitly ignore node_modules and other common ignored directories
+        ignored_dirs = [
+            'node_modules', 
+            '.git', 
+            '.mypy_cache', 
+            '.pytest_cache', 
+            '__pycache__', 
+            'dist', 
+            'build', 
+            'venv', 
+            '.venv'
+        ]
+        
+        # Check if any part of the path contains an ignored directory
+        path_parts = absolute_path.parts
+        if any(ignored_dir in path_parts for ignored_dir in ignored_dirs):
+            return False
+        
         # Check inclusion patterns
         if self.inclusion_patterns:
             if not any(fnmatch(file_path.name, pattern) for pattern in self.inclusion_patterns):
@@ -120,6 +156,11 @@ class RepoScanner:
         
         # Check ignore patterns
         if any(fnmatch(file_path.name, pattern) for pattern in self.ignore_patterns):
+            return False
+        
+        # Check gitignore patterns
+        relative_path = file_path.relative_to(self.repo_path)
+        if self._is_file_ignored(file_path):
             return False
         
         return True
@@ -188,7 +229,7 @@ class RepoScanner:
         
         Args:
             max_file_size (int): Maximum file size in bytes to process
-        
+    
         Returns:
             List[Dict[str, Any]]: List of file metadata dictionaries with line number tracking
         """
@@ -198,31 +239,30 @@ class RepoScanner:
             for filename in files:
                 file_path = Path(root) / filename
                 
-                # Skip files based on size, extension, gitignore, and user patterns
-                if (file_path.stat().st_size > max_file_size or
-                    not any(file_path.suffix == ext for ext in self.SUPPORTED_EXTENSIONS) or
-                    self._is_file_ignored(file_path) or
-                    not self._should_process_file(file_path)):
+                # Skip files that are too large
+                if file_path.stat().st_size > max_file_size:
+                    continue
+                
+                # Check if file should be processed
+                if not self._should_process_file(file_path):
                     continue
                 
                 try:
-                    # Detect file encoding
+                    # Detect encoding
                     encoding = self._detect_file_encoding(file_path)
                     
-                    # Read file content
-                    with open(file_path, 'r', encoding=encoding) as f:
+                    # Try reading file with detected encoding
+                    with open(file_path, 'r', encoding=encoding, errors='replace') as f:
                         content = f.read()
                     
-                    # Chunk file content
-                    chunks = self._chunk_file_content(content, file_path)
-                    
-                    # Add chunks to scanned files
-                    scanned_files.extend(chunks)
+                    # Process file content
+                    file_chunks = self._chunk_file_content(content, file_path)
+                    scanned_files.extend(file_chunks)
                 
                 except Exception as e:
-                    # Log or handle file processing errors
-                    print(f"Error processing {file_path}: {e}")
-        
+                    # Log or handle specific file processing errors
+                    print(f"Error processing {file_path}: {str(e)}")
+    
         return scanned_files
 
     def get_files_with_dates(self) -> Dict[str, datetime.datetime]:

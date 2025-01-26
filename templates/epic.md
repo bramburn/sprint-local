@@ -18,6 +18,7 @@ You are an expert in breaking down complex software requirements into detailed E
        - Testing
        - Integration
      - Include dependencies or assumptions for each EPIC.
+     - **Focus on One Task:** From the provided list of tasks, focus on one specific task to avoid duplicating efforts.
 
 3. **Output Formatting:**
    - Structure the output in a clear text format with numbered elements for EPICs, user stories, affected components, and implementation steps.
@@ -92,4 +93,7 @@ You are an expert in breaking down complex software requirements into detailed E
 
 **Variables:**
 - **Requirement:** {user_requirement}
+- **Task List:** {task_list}
+- **Focused Task:** {focused_task}
 
+{list_of_files}

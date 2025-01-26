@@ -4,11 +4,11 @@ from typing import Optional
 import os
 import config
 import asyncio
-from backlog_generator import BacklogGenerator
+from .backlog_generator import BacklogGenerator
 import argparse
 import sys
 from pathlib import Path
-from documentation import add_docs as add_documentation
+from .documentation import add_docs as add_documentation
 
 # Debugging output
 print("cli_interface.py loaded")
@@ -62,7 +62,7 @@ def solve(
     print(f"Solving problem: {problem_description}")  # Debug: Log problem description
     try:
         # Local import to avoid circular dependency
-        from integrated_workflow import run_workflow
+        from .integrated_workflow import run_workflow
         result = run_workflow(
             problem_description=problem_description,
             thread_id=thread_id,
@@ -82,7 +82,7 @@ def state(thread_id: str, json: bool = False):
     """Retrieve the state of a specific workflow thread."""
     try:
         # Local import to avoid circular dependency
-        from integrated_workflow import IntegratedWorkflow
+        from .integrated_workflow import IntegratedWorkflow
         workflow = IntegratedWorkflow()
         state = asyncio.run(workflow.get_workflow_state(thread_id))
         if state:
@@ -99,7 +99,7 @@ def clear(thread_id: Optional[str] = None):
     """Clear workflow state for a specific thread or all threads."""
     try:
         # Local import to avoid circular dependency
-        from integrated_workflow import IntegratedWorkflow
+        from .integrated_workflow import IntegratedWorkflow
         workflow = IntegratedWorkflow()
         asyncio.run(workflow.clear_workflow_state(thread_id))
         if thread_id:
@@ -137,7 +137,7 @@ def langchain_command(prompt: str):
     """
     Execute the Langchain LLM interaction.
     """
-    from langchain_file import LangchainFile
+    from .langchain_file import LangchainFile
     try:
         langchain_file = LangchainFile(     
            

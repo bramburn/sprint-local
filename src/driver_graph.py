@@ -2,8 +2,8 @@ import logging
 from typing import Dict, Any, Optional
 from langgraph.graph import StateGraph, END
 
-from driver_state import DriverState
-from driver_nodes import (
+from .driver_state import DriverState
+from .driver_nodes import (
     generate_code_node, 
     static_analysis_node, 
     test_code_node,
@@ -138,6 +138,6 @@ def create_driver_graph(memory_saver: Optional[Any] = None) -> DriverGraph:
         DriverGraph: Configured Driver graph instance.
     """
     # Local import to avoid circular dependency
-    from integrated_workflow import TestFixNode, ValidationNode
+    from .integrated_workflow import TestFixNode, ValidationNode
 
     return DriverGraph(memory_saver=memory_saver)

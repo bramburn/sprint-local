@@ -1,5 +1,5 @@
 import pytest
-from backlog_generator import BacklogGenerator, TaskType, TaskPriority
+from src.backlog_generator import BacklogGenerator, TaskType, TaskPriority
 
 def test_parse_prompt():
     generator = BacklogGenerator()

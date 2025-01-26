@@ -116,10 +116,18 @@ class ConfigurationError(WorkflowBaseError):
         config_info = f" [Config: {self.config_key}]" if self.config_key else ""
         return f"{base_msg}{config_info}"
 
+class APILimitException(Exception):
+    """Exception raised when API rate limits are reached."""
+    def __init__(self, message: str = "API rate limit reached", retry_after: int = 60):
+        self.message = message
+        self.retry_after = retry_after
+        super().__init__(self.message)
+
 # Export all custom exceptions
 __all__ = [
     'WorkflowBaseError', 
     'WorkflowExecutionError', 
     'FileAnalysisError', 
-    'ConfigurationError'
+    'ConfigurationError',
+    'APILimitException'
 ]

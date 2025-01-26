@@ -2,6 +2,8 @@ import os
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 import logging
+import time
+from openai import RateLimitError
 
 from langchain_community.vectorstores import FAISS
 
@@ -9,7 +11,8 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 
-from config import config
+from .config import config
+from .exceptions import APILimitException
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +126,7 @@ class CodeVectorStore:
     Manages vector storage and retrieval for code documents.
     
     Features:
-    - OpenAI embeddings
+    - OpenAI embeddings with rate limit handling
     - FAISS vector storage
     - Code structure analysis
     - Persistent storage
@@ -135,7 +138,9 @@ class CodeVectorStore:
                  storage_path: Optional[str] = None,
                  embedding_model: str = "text-embedding-3-large",
                  chunk_size: int = 1000,
-                 chunk_overlap: int = 200):
+                 chunk_overlap: int = 200,
+                 max_retries: int = 3,
+                 retry_delay: int = 60):
         """
         Initialize vector store with embeddings and storage configuration.
         
@@ -145,6 +150,8 @@ class CodeVectorStore:
             embedding_model (str): OpenAI embedding model
             chunk_size (int): Maximum tokens per chunk
             chunk_overlap (int): Number of tokens to overlap between chunks
+            max_retries (int): Maximum number of retries for API calls
+            retry_delay (int): Delay in seconds between retries
         """
         # Use provided API key or from config
         self.api_key = api_key or config.openai_key
@@ -163,13 +170,55 @@ class CodeVectorStore:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         
+        # Rate limit handling
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        
         # FAISS vector store
         self.store = None
         self.metadata_store = {}
     
+    def _handle_api_call(self, func, *args, **kwargs):
+        """
+        Handle API calls with retry logic for rate limits.
+        
+        Args:
+            func: Function to call
+            *args: Positional arguments for the function
+            **kwargs: Keyword arguments for the function
+            
+        Returns:
+            Result of the function call
+            
+        Raises:
+            APILimitException: If max retries are exceeded
+        """
+        retries = 0
+        while retries < self.max_retries:
+            try:
+                return func(*args, **kwargs)
+            except RateLimitError as e:
+                retries += 1
+                retry_after = getattr(e, 'retry_after', self.retry_delay)
+                
+                if retries == self.max_retries:
+                    raise APILimitException(
+                        f"API rate limit reached after {retries} retries",
+                        retry_after=retry_after
+                    )
+                
+                logger.warning(
+                    f"API rate limit reached. Retrying in {retry_after} seconds. "
+                    f"Attempt {retries}/{self.max_retries}"
+                )
+                time.sleep(retry_after)
+            except Exception as e:
+                logger.error(f"Error in API call: {str(e)}")
+                raise
+
     def add_documents(self, documents: List[Dict[str, Any]], repo_path: Optional[Path] = None) -> None:
         """
-        Add documents to the vector store.
+        Add documents to the vector store with rate limit handling.
         
         Args:
             documents (List[Dict[str, Any]]): List of documents with content and metadata
@@ -201,20 +250,18 @@ class CodeVectorStore:
         if not processed_docs:
             logger.warning("No valid documents to add to vector store")
             return
-
+            
         splits = []
         metadatas = []
         
         for doc in processed_docs:
             try:
-                # Get document content and path
                 content = doc['content']
                 metadata = doc['metadata']
                 file_path = Path(metadata['file_path'])
                 
                 logger.debug(f"Processing document with path: {file_path}")
                 
-                # Process document into chunks
                 document_chunks = self.processor.process_file(
                     file_path, 
                     metadata=metadata, 
@@ -234,12 +281,15 @@ class CodeVectorStore:
             logger.warning("No valid documents to add to vector store")
             return
             
-        # Create vector store
-        self.store = FAISS.from_texts(
-            texts=splits, 
-            embedding=self.embeddings, 
-            metadatas=metadatas
-        )
+        # Create vector store with rate limit handling
+        def create_store():
+            return FAISS.from_texts(
+                texts=splits, 
+                embedding=self.embeddings, 
+                metadatas=metadatas
+            )
+            
+        self.store = self._handle_api_call(create_store)
         logger.info(f"Added {len(splits)} chunks to vector store")
     
     def similarity_search(self, query: str, k: int = 3, min_score: float = 0.7) -> List[Dict[str, Any]]:

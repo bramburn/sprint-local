@@ -2,8 +2,8 @@
 import argparse
 import logging
 from pathlib import Path
-from src.documentation import add_docs as add_documentation
-from src.exceptions import APILimitException
+from .documentation import add_docs as add_documentation
+from .exceptions import APILimitException
 
 # Configure logging
 logging.basicConfig(
