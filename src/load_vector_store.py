@@ -40,7 +40,7 @@ def load_vector_store(vector_store_location: str) -> FAISS:
     except Exception as e:
         raise RuntimeError(f"Failed to load vector store: {str(e)}")
 
-def search_vector_store(vector_store: FAISS, query: str, k: int = 6) -> List[Dict[str, Any]]:
+def search_vector_store(vector_store: FAISS, query: str, k: int = 50) -> List[Dict[str, Any]]:
     """
     Perform a search on the loaded vector store.
     
@@ -66,7 +66,7 @@ def main():
         # Load vector store from configured location
         vector_store_location = os.path.join(
             os.path.dirname(__file__), 
-            'vector_store','current'
+            '../vector_store','current'
         )
         vector_store = load_vector_store(vector_store_location)
         

@@ -130,6 +130,7 @@ class RepoScanner:
         """
         # Absolute path checks
         absolute_path = file_path.resolve()
+        relative_path = file_path.relative_to(self.repo_path)
         
         # Explicitly ignore node_modules and other common ignored directories
         ignored_dirs = [
@@ -149,22 +150,33 @@ class RepoScanner:
         if any(ignored_dir in path_parts for ignored_dir in ignored_dirs):
             return False
         
-        # Check inclusion patterns
-        if self.inclusion_patterns:
-            if not any(fnmatch(file_path.name, pattern) for pattern in self.inclusion_patterns):
-                return False
-        
-        # Check ignore patterns
-        if any(fnmatch(file_path.name, pattern) for pattern in self.ignore_patterns):
-            return False
-        
-        # Check gitignore patterns
-        relative_path = file_path.relative_to(self.repo_path)
+        # Check gitignore patterns first
         if self._is_file_ignored(file_path):
             return False
         
+        # Check inclusion patterns
+        if self.inclusion_patterns and self.inclusion_patterns != ["*.*"]:
+            # Use fnmatch for pattern matching
+            if not any(
+                fnmatch(file_path.name, pattern) or 
+                fnmatch(str(relative_path), pattern) 
+                for pattern in self.inclusion_patterns
+            ):
+                return False
+        
+        # Check ignore patterns
+        if any(fnmatch(file_path.name, pattern) or fnmatch(str(relative_path), pattern) 
+               for pattern in self.ignore_patterns):
+            return False
+        
+        # Check file extension
+        if self.SUPPORTED_EXTENSIONS:
+            file_ext = file_path.suffix.lower()
+            if file_ext not in self.SUPPORTED_EXTENSIONS:
+                return False
+        
         return True
-    
+
     def _chunk_file_content(self, content: str, file_path: Path) -> List[Dict[str, Any]]:
         """
         Chunk file content into logical sections based on code structure.
@@ -229,40 +241,51 @@ class RepoScanner:
         
         Args:
             max_file_size (int): Maximum file size in bytes to process
-    
+        
         Returns:
             List[Dict[str, Any]]: List of file metadata dictionaries with line number tracking
         """
         scanned_files = []
         
-        for root, _, files in os.walk(self.repo_path):
+        # Walk through repository files
+        for root, dirs, files in os.walk(self.repo_path):
+            # Remove ignored directories
+            dirs[:] = [d for d in dirs if not self._should_process_file(Path(root) / d)]
+            
             for filename in files:
                 file_path = Path(root) / filename
                 
-                # Skip files that are too large
-                if file_path.stat().st_size > max_file_size:
-                    continue
-                
-                # Check if file should be processed
-                if not self._should_process_file(file_path):
-                    continue
-                
                 try:
-                    # Detect encoding
+                    # Skip files that shouldn't be processed
+                    if not self._should_process_file(file_path):
+                        continue
+                    
+                    # Check file size
+                    file_size = file_path.stat().st_size
+                    if file_size > max_file_size:
+                        print(f"Skipping large file: {file_path} (Size: {file_size} bytes)")
+                        continue
+                    
+                    # Detect file encoding
                     encoding = self._detect_file_encoding(file_path)
                     
-                    # Try reading file with detected encoding
-                    with open(file_path, 'r', encoding=encoding, errors='replace') as f:
+                    # Read file content
+                    with open(file_path, 'r', encoding=encoding) as f:
                         content = f.read()
                     
-                    # Process file content
+                    # Chunk file content
                     file_chunks = self._chunk_file_content(content, file_path)
+                    
+                    # Add valid chunks to scanned files
                     scanned_files.extend(file_chunks)
                 
+                except PermissionError:
+                    print(f"Permission denied: {file_path}")
+                except UnicodeDecodeError:
+                    print(f"Encoding error: Unable to read {file_path}")
                 except Exception as e:
-                    # Log or handle specific file processing errors
-                    print(f"Error processing {file_path}: {str(e)}")
-    
+                    print(f"Error processing {file_path}: {e}")
+        
         return scanned_files
 
     def get_files_with_dates(self) -> Dict[str, datetime.datetime]:

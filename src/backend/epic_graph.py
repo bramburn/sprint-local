@@ -1,14 +1,15 @@
 from typing import TypedDict, Annotated, List, Dict, Any
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, END
 import operator
-from langchain.schema import SystemMessage, HumanMessage, AIMessage
+from langchain.schema import HumanMessage, AIMessage
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
+from pathlib import Path
 
 class EpicState(TypedDict):
     messages: Annotated[List[HumanMessage | AIMessage], operator.add]
     files: List[str]
+    file_contents: List[str]
     current_epic: dict
     epics: List[dict]
     status: str
@@ -23,23 +24,35 @@ class EpicGraph:
 
     def _analyze_requirements(self, state: EpicState) -> Dict:
         messages = state['messages']
-        results = self.vector_store.similarity_search_with_score(messages[0].content, k=5)
+        search_results = self.vector_store.similarity_search_with_score(messages[0].content, k=5)
+        
+        # Aggregate unique file paths
+        unique_file_paths = set(result.metadata.get("file_path", "Unknown") for result, _ in search_results)
+        
+        # Load content for each unique file path
+        files_with_content = {}
+        for file_path in unique_file_paths:
+            if Path(file_path).exists():  # Check if the file exists
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    files_with_content[file_path] = f.read()
         
         return {
-            "files": [result[0].page_content for result in results],
-            "status": "generate_epic"
+            "files": list(unique_file_paths),
+            "file_contents": list(files_with_content.values()),
+            "status": "analyze_complete"
         }
 
     def _generate_epic(self, state: EpicState) -> Dict:
         prompt = ChatPromptTemplate.from_messages([
             ("system", "Generate a structured epic based on the requirements and file context."),
             ("human", "{requirements}"),
-            ("human", "Context files:\n{files}")
+            ("human", "Context files:\n{files}\n\nFile contents:\n{file_contents}")
         ])
         
         response = prompt.invoke({
             "requirements": state['messages'][0].content,
-            "files": "\n".join(state['files'])
+            "files": "\n".join(state['files']),
+            "file_contents": "\n".join(state['file_contents'])
         })
         
         return {
@@ -96,7 +109,7 @@ class EpicGraph:
             lambda x: "generate" if x["status"] != "complete" else END,
             {
                 "generate": "generate",
-                "END": END
+                END: END
             }
         )
         
@@ -109,6 +122,7 @@ class EpicGraph:
         initial_state = {
             "messages": [HumanMessage(content=prompt)],
             "files": [],
+            "file_contents": [],
             "current_epic": {},
             "epics": [],
             "status": "start",

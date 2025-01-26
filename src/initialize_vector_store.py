@@ -1,7 +1,7 @@
 from pathlib import Path
-from .config import Config
-from .scanner import RepoScanner
-from .vectorstore import CodeVectorStore
+from config import Config
+from scanner import RepoScanner
+from vectorstore import CodeVectorStore
 import os
 import click
 from typing import Optional

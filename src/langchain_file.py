@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, TypedDict, Annotated
+from typing import Dict, List, Optional, TypedDict, Annotated
 
 from pydantic import BaseModel, Field
 
@@ -11,10 +11,10 @@ from langchain.schema import SystemMessage, HumanMessage, AIMessage
 from langchain_community.vectorstores import FAISS
 import os
 from config import config
-from scanner import RepoScanner
 from pathlib import Path
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 from backend.epic_graph import EpicGraph
+from backend.task_graph import TaskGraph
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import StateGraph, END
 import operator
@@ -66,7 +66,7 @@ class LangchainFile:
             os.path.dirname(__file__), vector_store_location
         )
         self.vector_store = self._load_vector_store(vector_store_location)
-        self.scanner = RepoScanner(os.path.dirname(__file__))
+        self.task_graph = TaskGraph(self.llm)
 
     def _load_vector_store(self, vector_store_location: str) -> FAISS:
         """
@@ -98,28 +98,7 @@ class LangchainFile:
         except Exception as e:
             raise RuntimeError(f"Failed to load vector store: {str(e)}")
 
-    def _search_vector_store(self, query: str, k: int = 10):
-        """
-        Perform a search on the loaded vector store.
-
-        Args:
-            query (str): Search query
-            k (int): Number of results to return
-
-        Returns:
-            List[Dict[str, Any]]: Search results with metadata
-        """
-        results = self.vector_store.similarity_search_with_score(query, k=k)
-
-        return [
-            {
-                "content": result.page_content,
-                "score": score,
-                "metadata": result.metadata,
-                "file_path": result.metadata.get("file_path", "Unknown"),
-            }
-            for result, score in results
-        ]
+    
 
     def _get_structured_epic(self):
         """
@@ -169,31 +148,9 @@ class LangchainFile:
 
         return prompt, parser
 
-    def _ensure_file_exists(self, file_path, default_content=""):
-        """
-        Ensure the file exists, creating it with default content if it doesn't.
-        """
-        if not os.path.exists(file_path):
-            self.file_creator._run(file_path, default_content)
 
-    def _get_file_content(self, file_paths):
-        """
-        Retrieve content for given file paths.
 
-        Args:
-            file_paths (List[str]): List of file paths to retrieve content from
-
-        Returns:
-            List[str]: List of file contents
-        """
-        content_list = []
-        for file_path in file_paths:
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    content_list.append(f.read())
-            except Exception as e:
-                print(f"Error reading file {file_path}: {e}")
-        return content_list
+    
 
     def _load_epic_template(self):
         """
@@ -251,27 +208,26 @@ class LangchainFile:
             structured_task = structured_task
         return structured_task
 
-    def _split_tasks(self, state: TaskState) -> TaskState:
-        """Split the initial requirement into tasks using LLM"""
-        prompt_template = self._load_template("prompt_template.txt")
-
-        response = self.llm.invoke(
-            [
-                SystemMessage(
-                    content="Split the requirement into clear, actionable tasks."
-                ),
-                HumanMessage(content=state["messages"][0].content),
-            ]
-        )
-
+    def _split_tasks(self, state: TaskState) -> Dict:
+        if state["status"] == "complete":
+            return state
+        response = self.llm.invoke([
+            SystemMessage(content="Split the requirement into clear, actionable tasks."),
+            HumanMessage(content=state["messages"][0].content)
+        ])
+        
         tasks = self._parse_tasks(response.content)
-        return {"tasks": tasks, "status": "process_task"}
+        return {
+            "messages": state["messages"],
+            "tasks": tasks,
+            "current_task": "",
+            "epics": state["epics"],
+            "status": "process_task"
+        }
+
 
     def _process_task(self, state: TaskState) -> TaskState:
         """Process individual task to generate epic"""
-        if not state["tasks"]:
-            return {"status": "complete"}
-
         current_task = state["tasks"].pop(0)
 
         epic_template = self._load_epic_template()
@@ -308,19 +264,26 @@ class LangchainFile:
         graph.add_node("process_task", self._process_task)
         graph.add_node("generate_epic", self._generate_epic)
 
-        # Add conditional edges with proper state handling
+        # Add conditional edges with proper END handling
         graph.add_conditional_edges(
-            "split_tasks", lambda x: "process_task", {"process_task": "process_task"}
+            "split_tasks",
+            lambda x: "process_task",
+            {"process_task": "process_task"}
         )
 
         graph.add_conditional_edges(
             "process_task",
-            lambda x: "generate_epic" if x["status"] != "complete" else END,
-            {"generate_epic": "generate_epic", "END": END},
+            lambda x: "generate_epic" if x["status"] != "complete" else "end",
+            {
+                "generate_epic": "generate_epic",
+                "end": END
+            }
         )
 
         graph.add_conditional_edges(
-            "generate_epic", lambda x: "process_task", {"process_task": "process_task"}
+            "generate_epic",
+            lambda x: "process_task",
+            {"process_task": "process_task"}
         )
 
         # Set entry point
@@ -330,66 +293,100 @@ class LangchainFile:
 
     def _load_template(self, template_name: str) -> str:
         """Load template from file"""
-        template_path = Path(__file__).parent / "templates" / template_name
+        template_path = Path(__file__).parent / "../templates" / template_name
         with open(template_path, "r") as f:
             return f.read()
 
     def _parse_tasks(self, content: str) -> List[str]:
-        """Parse tasks from LLM response"""
-        # Add your parsing logic here
-        # This should extract individual tasks from the LLM's response
         tasks = []
-        # Parse the content and append to tasks
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line.startswith('-') or line.startswith('*'):
+                tasks.append(line[1:].strip())
         return tasks
+
 
     def run(self, prompt: str):
         """Execute the LangGraph workflow and generate epics with backlogs"""
-        workflow = self._build_task_graph()
-
-        # Initialize state
-        initial_state = {
-            "messages": [HumanMessage(content=prompt)],
-            "tasks": [],
-            "current_task": "",
-            "epics": [],
-            "status": "start",
-        }
-
-        # Run the workflow to get tasks and initial epics
-        result = workflow.invoke(initial_state)
-
+        result = self.task_graph.run(prompt)
+        
+        # Write results to file if needed
+        if result["epics"]:
+            for epic in result["epics"]:
+                self._write_line(f"\nEpic:\n{epic}\n")
+        
+        # print(result)
+        return result
         # Initialize EpicGraph for detailed epic generation
-        epic_graph = EpicGraph(self.llm, self.vector_store)
+        # epic_graph = EpicGraph(self.llm, self.vector_store)
 
-        # Process results and generate detailed epics with backlogs
-        final_epics = []
-        for epic in result["epics"]:
-            # Generate detailed epic using EpicGraph
-            detailed_epic = epic_graph.run(epic["description"])
-            final_epics.extend(detailed_epic["epics"])
+        # # Process results and generate detailed epics with backlogs
+        # final_epics = []
+        # for epic in result["epics"]:
+        #     # Generate detailed epic using EpicGraph
+        #     detailed_epic = epic_graph.run(epic["description"])
+        #     final_epics.extend(detailed_epic["epics"])
 
-            # Write epic to output
-            self._write_line(f"\nEpic:\n{epic}\n")
+        #     # Write epic to output
+        #     self._write_line(f"\nEpic:\n{epic}\n")
 
-            # Generate backlog for each epic
-            backlog_prompt = (
-                f"Please create a detailed step-by-step instructions for this epic. "
-            )
-            if "acceptance_criteria" in epic:
-                criteria = "\n".join(epic["acceptance_criteria"])
-                backlog_prompt += f"Ensure to cover testing to achieve the acceptance criteria:\n{criteria}"
+        #     # Generate backlog for each epic
+        #     backlog_prompt = (
+        #         f"Please create a detailed step-by-step instructions for this epic. "
+        #     )
+        #     if "acceptance_criteria" in epic:
+        #         criteria = "\n".join(epic["acceptance_criteria"])
+        #         backlog_prompt += f"Ensure to cover testing to achieve the acceptance criteria:\n{criteria}"
 
-            backlog_template = self._load_backlog_template()
-            formatted_backlog = backlog_template.format(
-                epic_context=epic,
-                user_prompt=backlog_prompt,
-            )
+        #     backlog_template = self._load_template("backlog_template.txt")
+        #     formatted_backlog = backlog_template.format(
+        #         epic_context=epic,
+        #         user_prompt=backlog_prompt,
+        #     )
 
-            content = self.llm.invoke(formatted_backlog)
-            if isinstance(content, AIMessage):
-                content = content.content
+        #     content = self.llm.invoke(formatted_backlog)
+        #     if isinstance(content, AIMessage):
+        #         content = content.content
 
-            self._write_line(f"\nBacklog: {content}\n")
+        #     self._write_line(f"\nBacklog: {content}\n")
 
-        self._write_line("\n\nFinished\n")
-        return final_epics
+        # self._write_line("\n\nFinished\n")
+        # return final_epics
+        
+
+        # # Initialize EpicGraph for detailed epic generation
+        # epic_graph = EpicGraph(self.llm, self.vector_store)
+
+        # # Process results and generate detailed epics with backlogs
+        # final_epics = []
+        # for epic in result["epics"]:
+        #     # Generate detailed epic using EpicGraph
+        #     detailed_epic = epic_graph.run(epic["description"])
+        #     final_epics.extend(detailed_epic["epics"])
+
+        #     # Write epic to output
+        #     self._write_line(f"\nEpic:\n{epic}\n")
+
+        #     # Generate backlog for each epic
+        #     backlog_prompt = (
+        #         f"Please create a detailed step-by-step instructions for this epic. "
+        #     )
+        #     if "acceptance_criteria" in epic:
+        #         criteria = "\n".join(epic["acceptance_criteria"])
+        #         backlog_prompt += f"Ensure to cover testing to achieve the acceptance criteria:\n{criteria}"
+
+        #     backlog_template = self._load_backlog_template()
+        #     formatted_backlog = backlog_template.format(
+        #         epic_context=epic,
+        #         user_prompt=backlog_prompt,
+        #     )
+
+        #     content = self.llm.invoke(formatted_backlog)
+        #     if isinstance(content, AIMessage):
+        #         content = content.content
+
+        #     self._write_line(f"\nBacklog: {content}\n")
+
+        # self._write_line("\n\nFinished\n")
+        # return final_epics
