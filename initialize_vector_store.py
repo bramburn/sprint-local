@@ -3,6 +3,8 @@ from config import Config
 from scanner import RepoScanner
 from vectorstore import CodeVectorStore
 import os
+import click
+from typing import Optional
 
 
 def validate_path(path: str, path_type: str) -> Path:
@@ -25,13 +27,16 @@ def validate_path(path: str, path_type: str) -> Path:
     return path
 
 
-def initialize_vector_store(vector_store_location: str, repo_folder: str) -> None:
+@click.command()
+@click.option('--name', help='Name of the vector store')
+def initialize_vector_store(vector_store_location: str, repo_folder: str, name: Optional[str] = None) -> None:
     """
     Initialize and save a vector store with TypeScript files from a repository.
 
     Args:
         vector_store_location (str): Path to save the vector store
         repo_folder (str): Path to the repository to scan
+        name (Optional[str]): Name of the vector store
 
     Raises:
         FileNotFoundError: If repository folder does not exist
@@ -39,7 +44,10 @@ def initialize_vector_store(vector_store_location: str, repo_folder: str) -> Non
     """
     # Validate paths
     repo_path = validate_path(repo_folder, "Repository folder")
-    vector_store_path = Path(vector_store_location).resolve()
+    if name:
+        vector_store_path = Path(vector_store_location) / name
+    else:
+        vector_store_path = Path(vector_store_location).resolve()
 
     # Initialize the RepoScanner with the repository path
     scanner = RepoScanner(str(repo_path))

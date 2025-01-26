@@ -1,172 +1,71 @@
-# LangChain File Management Tools
+# Vector Store Management System
 
-## Overview
-
-This project provides a comprehensive set of file management tools for LangChain, designed to create, edit, and patch files with robust validation and error handling.
+A Python-based system for managing vector stores and documentation using FAISS and LangChain.
 
 ## Features
 
-- **File Creator Tool**: Create new files with specified content
-- **File Editor Tool**: Edit existing files with backup functionality
-- **File Patcher Tool**: Apply patches to files with comprehensive validation
+- Add and manage documentation in vector stores
+- Generate backlogs from prompts using LLM
+- Execute LangChain interactions through CLI
+- Efficient vector storage using FAISS
+- Comprehensive documentation management
 
 ## Installation
 
-Ensure you have Poetry installed. Then:
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd <repository-name>
+```
 
+2. Install dependencies using Poetry:
 ```bash
 poetry install
 ```
 
-## Usage
+## Quick Start
 
-### File Creator Tool
-
-```python
-from tools import FileCreatorTool
-
-creator = FileCreatorTool()
-result = creator._run("example.txt", "Hello, World!")
-print(result)  # File created successfully
-```
-
-### File Editor Tool
-
-```python
-from tools import FileEditorTool
-
-editor = FileEditorTool()
-result = editor._run("example.txt", "Updated content", backup=True)
-print(result)  # File edited successfully
-```
-
-### File Patcher Tool
-
-```python
-from tools import FilePatcherTool
-
-patcher = FilePatcherTool()
-patch_content = """@@ -1 +1 @@
--Original content
-+Patched content"""
-result = patcher._run("example.txt", patch_content)
-print(result)  # File patched successfully
-```
-
-### CLI Commands
-
-You can use the Sprint CLI to run various commands for automated workflows. Here are the available commands:
-
-1. **Solve a Problem**
-   ```bash
-   python cli_interface.py solve "Your problem description" --thread-id "unique-thread-id" --json
-   ```
-   This command generates a solution for the given problem description.
-
-2. **Retrieve Workflow State**
-   ```bash
-   python cli_interface.py state "unique-thread-id" --json
-   ```
-   This command retrieves the state of a specific workflow thread.
-
-3. **Clear Workflow State**
-   ```bash
-   python cli_interface.py clear "unique-thread-id"
-   ```
-   This command clears the workflow state for a specific thread or all threads if no thread ID is provided.
-
-4. **Display CLI Version**
-   ```bash
-   python cli_interface.py version
-   ```
-   This command displays the current version of the Sprint CLI.
-
-5. **Generate a Backlog**
-   ```bash
-   python cli_interface.py generate_backlog "Your prompt" --output "backlog.txt"
-   ```
-   This command generates a detailed backlog from a given prompt and saves it to the specified output file.
-
-### Running Tests
-
+1. Add documentation to the vector store:
 ```bash
-poetry run pytest tests/
+python cli_interface.py add-docs docs/example.md
 ```
 
-## Key Components
+2. Generate a backlog:
+```bash
+python cli_interface.py generate-backlog "Your project description" -o backlog.md
+```
 
-- `tools/base_tool.py`: Base class for custom LangChain tools
-- `tools/file_creator.py`: Tool for creating new files
-- `tools/file_editor.py`: Tool for editing existing files
-- `tools/file_patcher.py`: Tool for applying patches to files
+3. Use LangChain:
+```bash
+python cli_interface.py langchain --prompt "Your prompt"
+```
 
-## Security Features
+## Documentation
 
-- Path validation to prevent file system traversal
-- Backup creation for edit and patch operations
-- Comprehensive input validation
+For detailed usage instructions and examples, see:
+- [CLI Usage Guide](docs/cli_usage.md)
+
+## Project Structure
+
+```
+.
+├── cli_interface.py        # CLI implementation
+├── documentation.py        # Documentation management
+├── vector_store_manager.py # Vector store operations
+├── scanner.py             # File scanning utilities
+├── docs/                  # Documentation
+│   └── cli_usage.md       # CLI usage guide
+└── tests/                 # Test files
+```
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-## TypeScript Analyzer and Error Fixing System
-
-### Overview
-
-The TypeScript Analyzer provides advanced error detection, categorization, and automatic fixing capabilities using Large Language Models (LLMs).
-
-### Features
-
-- **Error Understanding**: Categorize and analyze TypeScript errors
-- **Automatic Fix Generation**: Generate detailed instructions and code snippets for error resolution
-- **Intelligent Application**: Apply generated fixes to relevant files
-
-### Usage Example
-
-```python
-from analyzers.typescript_analyzer import TypeScriptAnalyzer
-from langchain.llms import OpenAI
-
-# Initialize the analyzer
-analyzer = TypeScriptAnalyzer()
-llm = OpenAI(temperature=0.3)
-
-# Analyze and fix an error
-error_message = "TypeError: Cannot read property 'x' of undefined"
-file_paths = ["/path/to/your/typescript/file.ts"]
-
-# Automatically generate and apply fixes
-analyzer.generate_and_apply_fixes(
-    error_message, 
-    file_paths, 
-    llm=llm
-)
-```
-
-### Error Fixing Workflow
-
-1. **Understand Error**: Categorize the error type and location
-2. **Generate Fix**: Create detailed instructions and code snippets
-3. **Apply Fix**: Modify files automatically
-
-### Dependencies
-
-- LangChain
-- OpenAI
-- Python 3.10+
-- Poetry for dependency management
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
-
-## Contact
-
-Your Name - nitrogen@gmail.com
-
-Project Link: [https://github.com/yourusername/langchain-file-tools](https://github.com/yourusername/langchain-file-tools)
+This project is licensed under the MIT License - see the LICENSE file for details.

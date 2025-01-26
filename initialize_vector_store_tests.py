@@ -1,6 +1,8 @@
 import unittest
 import os
 
+from initialize_vector_store import initialize_vector_store
+
 class TestVectorStoreInitialization(unittest.TestCase):
     def test_empty_file(self):
         # Create a temporary empty file

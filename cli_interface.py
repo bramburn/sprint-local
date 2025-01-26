@@ -174,6 +174,11 @@ def setup_parser():
         help='Path to the documentation file to add'
     )
     docs_parser.add_argument(
+        '--name',
+        type=str,
+        help='Name of the document to add'
+    )
+    docs_parser.add_argument(
         '--vector-store-path',
         type=str,
         default='vector_store/documentation',
@@ -200,7 +205,7 @@ def main():
             vector_store_path.mkdir(parents=True, exist_ok=True)
             
             # Add the documentation to the vector store
-            add_documentation(args.file_path, str(vector_store_path))
+            add_documentation(args.file_path, str(vector_store_path), args.name)
             
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)

@@ -61,14 +61,15 @@ class VectorStoreInitializer:
             logger.error(f"Error saving vector store: {str(e)}")
             raise
     
-    def update_vector_store(self, repo_path: str) -> None:
+    def update_vector_store(self, repo_path: str, name: Optional[str] = None) -> None:
         """
         Update the vector store with new or modified files.
         
         Args:
             repo_path (str): Path to the repository to scan
+            name (Optional[str]): Name of the vector store
         """
-        logger.info(f"Starting vector store update for repository: {repo_path}")
+        logger.info(f"Starting vector store update for repository: {repo_path} with name: {name}")
         
         # Initialize scanner
         scanner = RepoScanner(repo_path)

@@ -85,7 +85,7 @@ class LangchainFile:
         except Exception as e:
             raise RuntimeError(f"Failed to load vector store: {str(e)}")
 
-    def _search_vector_store(self, query: str, k: int = 6):
+    def _search_vector_store(self, query: str, k: int = 10):
         """
         Perform a search on the loaded vector store.
 
