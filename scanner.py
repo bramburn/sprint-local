@@ -5,9 +5,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple
 from fnmatch import fnmatch
 import re
-
-# Import code analyzers
-from analyzers.typescript_analyzer import TypeScriptAnalyzer
+import datetime
 
 class RepoScanner:
     """
@@ -22,7 +20,7 @@ class RepoScanner:
     """
     
     SUPPORTED_EXTENSIONS = [
-        '.py', '.js', '.ts', '.jsx', '.tsx', 
+        '.py', '.js', '.jsx',
         '.html', '.css', '.scss', '.json', 
         '.md', '.rst', '.txt', '.yaml', '.yml'
     ]
@@ -36,8 +34,7 @@ class RepoScanner:
         """
         self.repo_path = Path(repo_path).resolve()
         self.ignore_patterns = []
-        self.inclusion_patterns = ["*.ts", "*.js", "*.jsx", "*.tsx"]  # Default to TypeScript files
-        self.typescript_analyzer = TypeScriptAnalyzer()
+        self.inclusion_patterns = ["*.*"]  # Default to all files
         
         # Load .gitignore if it exists
         gitignore_path = self.repo_path / '.gitignore'
@@ -145,8 +142,8 @@ class RepoScanner:
         if extension == '.py':
             # Split Python files at class and function definitions
             pattern = r'(?<=\n)(?:(?:class|def)\s+\w+.*:)'
-        elif extension in ['.js', '.ts', '.jsx', '.tsx']:
-            # Split JavaScript/TypeScript files at function and class definitions
+        elif extension in ['.js', '.jsx']:
+            # Split JavaScript files at function and class definitions
             pattern = r'(?<=\n)(?:(?:class|function)\s+\w+.*\{)'
         else:
             # Default strategy: split by lines
@@ -165,6 +162,9 @@ class RepoScanner:
             sections = ['\n'.join(lines[i:i+max_chunk_size]) 
                        for i in range(0, len(lines), max_chunk_size)]
 
+        # Get file modification time
+        mod_time = datetime.datetime.fromtimestamp(file_path.stat().st_mtime)
+
         # Create chunks with metadata
         for i, section in enumerate(sections):
             chunk = {
@@ -174,7 +174,8 @@ class RepoScanner:
                     'total_chunks': len(sections),
                     'file_path': str(file_path),
                     'relative_path': str(file_path.relative_to(self.repo_path)),
-                    'file_size': file_path.stat().st_size
+                    'file_size': file_path.stat().st_size,
+                    'last_modified': mod_time.isoformat()
                 }
             }
             chunks.append(chunk)
@@ -223,3 +224,26 @@ class RepoScanner:
                     print(f"Error processing {file_path}: {e}")
         
         return scanned_files
+
+    def get_files_with_dates(self) -> Dict[str, datetime.datetime]:
+        """
+        Get a dictionary of file paths and their modification times.
+        
+        Returns:
+            Dict[str, datetime.datetime]: Dictionary mapping file paths to modification times
+        """
+        files_with_dates = {}
+        
+        for root, _, files in os.walk(self.repo_path):
+            for filename in files:
+                file_path = Path(root) / filename
+                
+                if self._should_process_file(file_path):
+                    try:
+                        mod_time = datetime.datetime.fromtimestamp(file_path.stat().st_mtime)
+                        relative_path = str(file_path.relative_to(self.repo_path))
+                        files_with_dates[relative_path] = mod_time
+                    except Exception as e:
+                        print(f"Error getting modification time for {file_path}: {e}")
+        
+        return files_with_dates

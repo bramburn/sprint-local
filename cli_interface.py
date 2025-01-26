@@ -5,6 +5,10 @@ import os
 import config
 import asyncio
 from backlog_generator import BacklogGenerator
+import argparse
+import sys
+from pathlib import Path
+from documentation import add_docs as add_documentation
 
 # Debugging output
 print("cli_interface.py loaded")
@@ -149,5 +153,60 @@ def langchain_command(prompt: str):
 
 cli.add_command(langchain_command, name='langchain')
 
+def setup_parser():
+    """
+    Set up the argument parser for the CLI.
+    """
+    parser = argparse.ArgumentParser(
+        description='CLI interface for managing vector stores'
+    )
+    
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Add documentation command
+    docs_parser = subparsers.add_parser(
+        'add-docs',
+        help='Add documentation files to the vector store'
+    )
+    docs_parser.add_argument(
+        'file_path',
+        type=str,
+        help='Path to the documentation file to add'
+    )
+    docs_parser.add_argument(
+        '--vector-store-path',
+        type=str,
+        default='vector_store/documentation',
+        help='Path to store the vector store (default: vector_store/documentation)'
+    )
+    
+    return parser
+
+def main():
+    """
+    Main entry point for the CLI.
+    """
+    parser = setup_parser()
+    args = parser.parse_args()
+    
+    if args.command is None:
+        parser.print_help()
+        return 1
+    
+    try:
+        if args.command == 'add-docs':
+            # Ensure the vector store directory exists
+            vector_store_path = Path(args.vector_store_path)
+            vector_store_path.mkdir(parents=True, exist_ok=True)
+            
+            # Add the documentation to the vector store
+            add_documentation(args.file_path, str(vector_store_path))
+            
+    except Exception as e:
+        print(f"Error: {str(e)}", file=sys.stderr)
+        return 1
+        
+    return 0
+
 if __name__ == '__main__':
-    cli() 
+    exit(main()) 
