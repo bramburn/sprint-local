@@ -9,6 +9,7 @@ import argparse
 import sys
 from pathlib import Path
 from .documentation import add_docs as add_documentation
+from src.langchain_file import LangchainWorkflow
 
 # Debugging output
 print("cli_interface.py loaded")
@@ -131,27 +132,31 @@ def generate_backlog(prompt: str, output: Optional[str] = None):
         click.echo(backlog)
 
 @click.command()
-@click.option('--prompt', '-p', required=True, help='The prompt to send to the LLM')
-
-def langchain_command(prompt: str):
+@click.argument('requirement', required=True)
+@click.option('--output', '-o', type=click.Path(), help='Path to save the generated epics')
+def langchain(requirement: str, output: Optional[str] = None):
     """
     Execute the Langchain LLM interaction.
     """
-    from .langchain_file import LangchainFile
-    try:
-        langchain_file = LangchainFile(     
-           
-        )
+    workflow = LangchainWorkflow()
+    result = workflow.generate_tasks_and_epics(requirement, output_filename=output or 'project_epics.md')
+    
+    click.echo("\n--- Workflow Generation Results ---")
+    click.echo(f"Total Tasks Generated: {len(result.get('tasks', []))}")
+    click.echo(f"Total Epics Generated: {len(result.get('epics', []))}")
+    click.echo(f"Output File: {result.get('output_file', 'No output file')}")
+    
+    if result.get('tasks'):
+        click.echo("\n--- Tasks ---")
+        for idx, task in enumerate(result['tasks'], 1):
+            click.echo(f"{idx}. {task.name}")
+    
+    if result.get('epics'):
+        click.echo("\n--- Epic Summaries ---")
+        for idx, epic in enumerate(result['epics'], 1):
+            click.echo(f"{idx}. Epic for Task: {epic.get('task', {}).get('name', 'Unnamed Task')}")
 
-        
-
-        response = langchain_file.run(prompt)
-        click.echo(response)
-    except Exception as e:
-        click.echo(f"Error: {str(e)}", err=True)
-        exit(1)
-
-cli.add_command(langchain_command, name='langchain')
+cli.add_command(langchain, name='langchain')
 
 def setup_parser():
     """

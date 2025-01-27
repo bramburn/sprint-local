@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from config import config
+from src.config import config
 
 def load_vector_store(vector_store_location: str) -> FAISS:
     """

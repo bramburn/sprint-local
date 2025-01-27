@@ -11,8 +11,8 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 
-from config import config
-from exceptions import APILimitException
+from src.config import config
+from src.exceptions import APILimitException
 
 logger = logging.getLogger(__name__)
 
