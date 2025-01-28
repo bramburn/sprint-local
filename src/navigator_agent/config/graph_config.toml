@@ -1,0 +1,38 @@
+# LangGraph Configuration for Navigator Agent
+
+[workflow]
+max_iterations = 5
+timeout_seconds = 60
+default_temperature = 0.3
+retry_attempts = 3
+
+[subagents]
+reflection_weight = 0.4
+solution_weight = 0.3
+analysis_weight = 0.3
+
+[performance]
+max_concurrent_sessions = 50
+max_tokens = 4096
+context_window_size = 32000
+response_time_threshold_ms = 2000
+
+[security]
+api_key_encryption = "AES-256"
+token_chunk_size = 8192
+summary_compression_ratio = 0.5
+input_sanitization = true
+max_retry_attempts = 3
+
+[logging]
+level = "INFO"
+trace_enabled = true
+audit_trail = true
+
+[llm]
+provider = "openai"
+model = "gpt-4-turbo"
+
+[error_handling]
+retry_strategy = "exponential_backoff"
+max_error_threshold = 2

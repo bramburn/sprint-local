@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "sprint-py"
+name = "navigator-agent"
 version = "0.1.0"
-description = "Python script to plan and modify code"
-authors = ["Bhavesh Ramburn <nitrogen@gmail.com>"]
+description = "A collaborative multi-agent problem-solving system using LangChain and LangGraph"
+authors = ["Your Name <your.email@example.com>"]
 license = "Copyright 2025"
 readme = "README.md"
 
@@ -10,12 +10,15 @@ readme = "README.md"
 test = "pytest"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
+tomli = "^2.0.1"
+langchain = "^0.1.2"
+langgraph = "^0.0.3"
+pydantic = "^2.6.0"
+openai = "^1.0.0"
+uuid = "^1.30"
 langchain-community = "^0.3.14"
 faiss-cpu = "^1.9.0.post1"
-openai = "^1.59.7"
-langchain = "^0.3.14"
-pytest = "^8.3.4"
 pathspec = "^0.12.1"
 chardet = "^5.2.0"
 python-dotenv = "^1.0.1"
@@ -29,12 +32,30 @@ scikit-learn = "^1.6.1"
 scipy = "^1.15.1"
 pandas = "^2.2.3"
 subprocess32 = "^3.5.4"
+tavily-python = "^0.2.0"
+tomli = "^2.0.1"
+pytest = "^7.4.3"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.4"
-mypy = "^1.10.0"
+mypy = "^1.7.1"
+black = "^23.11.0"
+isort = "^5.12.0"
+hypothesis = "^6.82.0"
 
+[tool.pytest.ini_options]
+addopts = "-p no:warnings"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["."]
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
