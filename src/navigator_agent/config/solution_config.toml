@@ -1,0 +1,52 @@
+[solution_generation]
+# Maximum number of solutions to generate
+max_solutions = 3
+
+# Maximum token limit for individual solutions
+max_solution_tokens = 1024
+
+# Solution generation strategies
+solution_generation_strategies = [
+    "direct_problem_solving",
+    "constraint_optimization", 
+    "risk_mitigation",
+    "innovative_approach"
+]
+
+# Advanced scoring weights
+[solution_generation.scoring_weights]
+complexity = 0.25
+feasibility = 0.35
+innovation = 0.2
+risk_mitigation = 0.2
+
+# Diversity and generation parameters
+diversity_threshold = 0.7
+max_generation_retries = 3
+
+# Logging configuration
+log_level = "INFO"
+
+[performance]
+# Performance tracking settings
+track_memory_usage = true
+track_cpu_usage = true
+log_interval_seconds = 60
+
+# Strategy-specific configuration
+[solution_generation.strategy_config]
+[solution_generation.strategy_config.direct_problem_solving]
+priority_weight = 0.4
+complexity_tolerance = 0.6
+
+[solution_generation.strategy_config.constraint_optimization]
+resource_efficiency_weight = 0.5
+constraint_satisfaction_threshold = 0.8
+
+[solution_generation.strategy_config.risk_mitigation]
+risk_coverage_weight = 0.6
+contingency_plan_requirement = true
+
+[solution_generation.strategy_config.innovative_approach]
+novelty_weight = 0.5
+transformative_potential_threshold = 0.7
