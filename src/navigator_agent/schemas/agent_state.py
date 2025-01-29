@@ -31,6 +31,7 @@ class ErrorAnalysis(BaseModel):
     severity: ErrorSeverity = Field(description="Error severity level")
     static_analysis_findings: List[str] = Field(default_factory=list)
 
+<<<<<<< HEAD
 class AgentStatus(Enum):
     IDLE = 1
     PROCESSING = 2
@@ -63,17 +64,33 @@ class AgentState(BaseModel):
     
     messages: Annotated[List[dict], add_messages]
     
+=======
+class AgentState(TypedDict):
+    # Message history and context
+    messages: Annotated[List[dict], add_messages]
+    
+    # Solution lifecycle management
+>>>>>>> 62d5686fe3b4abbb8197ec527d7129df0198e919
     possible_solutions: Annotated[List[Solution], operator.add]
     selected_solution: Optional[Solution]
     solution_history: Annotated[List[Solution], operator.add]
     
+<<<<<<< HEAD
     current_errors: Annotated[List[ErrorAnalysis], operator.add]
     error_history: Annotated[List[ErrorAnalysis], operator.add]
     
+=======
+    # Error tracking and analysis
+    current_errors: Annotated[List[ErrorAnalysis], operator.add]
+    error_history: Annotated[List[ErrorAnalysis], operator.add]
+    
+    # Contextual metadata
+>>>>>>> 62d5686fe3b4abbb8197ec527d7129df0198e919
     problem_statement: str
     constraints: Dict[str, str]
     iteration_count: int
     
+<<<<<<< HEAD
     last_processed: datetime
     processing_times: Annotated[List[float], operator.add]
     
@@ -186,3 +203,12 @@ class AgentState(BaseModel):
         state.updated_at = datetime.fromisoformat(data['updated_at'])
         
         return state
+=======
+    # Performance tracking
+    last_processed: datetime
+    processing_times: Annotated[List[float], operator.add]
+    
+    # Security/audit
+    session_id: str
+    security_hash: str
+>>>>>>> 62d5686fe3b4abbb8197ec527d7129df0198e919

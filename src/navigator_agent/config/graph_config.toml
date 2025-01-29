@@ -1,5 +1,6 @@
 # LangGraph Configuration for Navigator Agent
 
+<<<<<<< HEAD
 [navigator_agent]
 # Maximum number of iterations for workflow
 max_iterations = 3
@@ -28,6 +29,18 @@ max_tokens = 4096
 max_solutions_for_selection = 5
 min_solution_quality_threshold = 0.8
 error_escalation_threshold = 0.6
+=======
+[workflow]
+max_iterations = 5
+timeout_seconds = 60
+default_temperature = 0.3
+retry_attempts = 3
+
+[subagents]
+reflection_weight = 0.4
+solution_weight = 0.3
+analysis_weight = 0.3
+>>>>>>> 62d5686fe3b4abbb8197ec527d7129df0198e919
 
 [performance]
 max_concurrent_sessions = 50

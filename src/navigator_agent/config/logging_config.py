@@ -2,8 +2,11 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from dotenv import load_dotenv
+<<<<<<< HEAD
 import sys
 from pathlib import Path
+=======
+>>>>>>> 62d5686fe3b4abbb8197ec527d7129df0198e919
 
 # Load environment variables
 load_dotenv()
@@ -46,6 +49,7 @@ def setup_logging():
     
     return logging.getLogger('navigator_agent')
 
+<<<<<<< HEAD
 class TestFailureLogger:
     """
     Enhanced logging configuration for test failure handling.
@@ -140,5 +144,7 @@ class LoggingContext:
                 self.logger.info(f"Completed recovery for {self.error_type}")
         return False  # Propagate exceptions
 
+=======
+>>>>>>> 62d5686fe3b4abbb8197ec527d7129df0198e919
 # Create a global logger
 logger = setup_logging()
