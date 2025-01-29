@@ -8,175 +8,23 @@ to run npm commands use `npm run <command>`
 use config.py and .env files for environment variables
 FAISS vector stores are located in vector_store/
 
-Here's a comprehensive diagram setup for Navigator Agents using LangChain's graph capabilities:
+# LLM Configuration
+llm:
+  provider: "openrouter"  # Supported providers: openrouter, openai
+  model: "gpt-4"          # Default model to use
+  api_base: "https://openrouter.ai/api/v1"
+  max_retries: 3          # Number of retries for API calls
 
-## File Structure Diagram
-```bash
-navigator_agent/
-├── agents/
-│   ├── navigator_agent.py        # Main coordinator
-│   ├── driver_agent.py           # Driver main agent
-│   ├── subagents/
-│   │   ├── reflection.py         # generate_reflection agent
-│   │   ├── solutions.py          # generate_possible_solutions
-│   │   ├── analysis.py           # analyze_test_failure/static_error
-│   │   └── driver_subagent.py    # Driver subagent
-├── methods_flow/                 # Methods flow definitions
-│   └── flow_definitions.py       # Definitions of various methods flows
-├── langchain_graph/
-│   ├── agent_graph.py            # LangGraph workflow definition
-│   └── node_definitions/         # Individual graph nodes
-├── schemas/
-│   └── agent_state.py            # Pydantic state models
-└── config/
-    └── graph_config.toml         # LangGraph parameters
-```
+# Reflection Configuration
+reflection:
+  chain_file: "src/agent/reflection/reflection_chain.py"
+  plan_template: "Create a step-by-step plan for: {input}"
+  reflect_template: "Analyze and improve this plan:\n{plan}"
 
-## LangChain Graph Class Diagram (PlantUML)
-```plantuml
-@startuml
-!pragma layout smetana
-
-class NavigatorAgent {
-    + __init__(config: GraphConfig)
-    + process_input(prompt: str) -> AgentResponse
-    - _route_to_subagent()
-}
-
-class LangGraphWorkflow {
-    + build_workflow() -> Graph
-    + add_node(agent: BaseAgent)
-    + compile() -> CompiledGraph
-}
-
-class ReflectionSubagent {
-    + analyze_context(context: str) -> Reflection
-    + generate_insights() -> List[Insight]
-}
-
-class SolutionSubagent {
-    + generate_options() -> List[Solution]
-    + rank_solutions() -> OrderedSolutions
-}
-
-class AnalysisSubagent {
-    + diagnose_errors(logs: str) -> ErrorReport
-    + suggest_fixes() -> FixProposals
-}
-
-NavigatorAgent o-- LangGraphWorkflow
-LangGraphWorkflow --> ReflectionSubagent : contains
-LangGraphWorkflow --> SolutionSubagent : contains
-LangGraphWorkflow --> AnalysisSubagent : contains
-
-BaseAgent <|-- NavigatorAgent
-BaseAgent <|-- ReflectionSubagent
-BaseAgent <|-- SolutionSubagent
-BaseAgent <|-- AnalysisSubagent
-
-class AgentState {
-    + current_context: str
-    + solution_history: List[Solution]
-    + error_logs: List[Error]
-}
-
-NavigatorAgent --> AgentState : manages
-@enduml
-```
-
-Key relationships shown in the diagram[3][6][12]:
-1. **Composition**: NavigatorAgent contains LangGraphWorkflow
-2. **Inheritance**: All agents inherit from BaseAgent
-3. **State Management**: NavigatorAgent manages AgentState
-4. **Workflow Integration**: LangGraphWorkflow coordinates subagents
-
-To generate this diagram from code:
-```bash
-# Install requirements
-pip install pyreverse plantuml
-
-# Generate UML from codebase
-pyreverse -o puml -p NavigatorSystem navigator_agent/
-```
-
-This structure follows LangGraph's recommended patterns for agent orchestration[3][9], with:
-- Clear separation between workflow definition and implementation
-- State management through Pydantic models
-- Configurable graph parameters via TOML
-- Subagent specialization following SOLID principles
-
-The PlantUML diagram can be rendered using:
-1. VS Code PlantUML extension
-2. PlantText online editor
-3. PyCharm Diagram Tools[4][10]
-
-Based on the information provided in the search results, I can describe the file structure for the Navigator agent using LangChain/LangGraph. Here's a breakdown of the likely file structure with descriptions for each file:
-
-1. navigator_agent/
-   - Main directory for the Navigator agent
-
-2. navigator_agent/agents/
-   - Contains the core agent implementations
-   
-   a. navigator_agent.py
-   - Implements the main NavigatorAgent class
-   - Methods likely include:
-     - __init__(): Initializes the agent with configuration
-     - process_input(): Handles incoming prompts or tasks
-     - _route_to_subagent(): Directs tasks to appropriate subagents
-
-   b. navigator_agent/agents/subagents/
-   - Directory for specialized subagent implementations
-   
-     i. reflection.py
-     - Implements the ReflectionSubagent class
-     - Methods may include:
-       - analyze_context(): Examines the current problem context
-       - generate_insights(): Produces reflections on the task
-
-     ii. solutions.py
-     - Implements the SolutionSubagent class
-     - Methods may include:
-       - generate_options(): Creates possible solution plans
-       - rank_solutions(): Prioritizes generated solutions
-
-     iii. analysis.py
-     - Implements the AnalysisSubagent class
-     - Methods may include:
-       - diagnose_errors(): Identifies issues in code or execution
-       - suggest_fixes(): Proposes corrections for identified problems
-
-3. navigator_agent/langchain_graph/
-   - Contains LangGraph-specific implementations
-   
-   a. agent_graph.py
-   - Defines the LangGraphWorkflow class
-   - Methods likely include:
-     - build_workflow(): Constructs the agent interaction graph
-     - add_node(): Incorporates agents into the workflow
-     - compile(): Finalizes the graph for execution
-
-   b. navigator_agent/langchain_graph/node_definitions/
-   - Contains individual node definitions for the LangGraph
-
-4. navigator_agent/schemas/
-   - Holds data model definitions
-   
-   a. agent_state.py
-   - Defines the AgentState class using Pydantic
-   - Likely includes attributes for:
-     - current_context: Stores the current task context
-     - solution_history: Maintains a list of generated solutions
-     - error_logs: Keeps track of encountered errors
-
-5. navigator_agent/config/
-   - Stores configuration files
-   
-   a. graph_config.toml
-   - Contains LangGraph parameters and settings
-   - Likely includes configurations for:
-     - API keys
-     - Model selections
-     - Workflow parameters
-
-This structure organizes the Navigator agent implementation using LangChain and LangGraph, separating concerns between agent logic, workflow definition, and configuration[1].
+# Global Configuration
+global:
+  config_file: "config.py"
+  env_file: ".env"
+  api_key_validation:
+    min_length: 30
+    valid_prefixes: ["sk-", "sk_"]

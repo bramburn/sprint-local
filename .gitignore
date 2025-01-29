@@ -97,10 +97,12 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
+repo-output.md
+repo-output.xml
 # IPython
 profile_default/
 ipython_config.py
+
 
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
@@ -199,3 +201,6 @@ node_modules/
 *.js[on]
 repomix.config.json
 repo-output.md
+
+# Add to existing .gitignore
+vector_store/

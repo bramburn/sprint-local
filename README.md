@@ -53,6 +53,24 @@ result = patcher._run("example.txt", patch_content)
 print(result)  # File patched successfully
 ```
 
+## Reflection Chaining
+
+The reflection chaining module allows for sequential processing of prompts through multiple stages of reflection. To use it:
+
+```python
+from src.agent.reflection import ReflectionChain
+
+chain = ReflectionChain()
+result = chain.reflect("Your input text here")
+```
+
+### Configuration
+Set your OpenRouter API key in the `.env` file:
+
+```bash
+OPENROUTER_API_KEY=your_api_key_here
+```
+
 ## Running Tests
 
 ```bash
