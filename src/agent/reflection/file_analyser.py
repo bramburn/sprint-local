@@ -28,20 +28,20 @@ class FileAnalyser:
         self.step_two_analyse_mermaid_workflow = ChatPromptTemplate.from_messages(
             [
                 SystemMessagePromptTemplate.from_template(
-                    "You are an experienced programmer at analyzing workflow and ensure completeness."
+                    "You are an experienced programmer analyzing workflows and ensuring completeness."
                 ),
                 HumanMessagePromptTemplate.from_template(
                     """
-            Analyse the following workflow and ensure it is complete and logical:
+               Analyse the following workflow and ensure it is complete and logical:
 
-            {step_one_analyse_workflow}
+               {step_one_analyse_workflow}
 
-
-            If not, provide a revised workflow:
-            """,
+                    If not, provide a revised workflow:
+                    """
                 ),
             ]
         )
+        
 
     def _load_file_analyser(self, file_path: str) -> str:
         """Load the file content as a string."""
