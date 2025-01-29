@@ -350,3 +350,145 @@ Citations:
 [31] https://www.reddit.com/r/LangChain/comments/1g731mc/best_resources_to_learn_langchain_and_build_ai/
 [32] https://zilliz.com/blog/emerging-trends-in-vector-database-research-and-development
 [33] https://www.aporia.com/learn/vector-databases/
+
+To modify the solution so that files are not chunked, you can directly retrieve the full content of the files from the vector store and pass it as context into your reflection chain. Here's the updated implementation:
+
+### Updated `ReflectionChain` Code
+
+```python
+# src/agent/reflection/reflection_chain.py
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema.output_parser import StrOutputParser
+from src.llm.openrouter import get_openrouter
+from src.vector.load import load_vector_store
+import os
+
+class ReflectionChain:
+    def __init__(self):
+        self.llm = get_openrouter()
+        self.vector_store = load_vector_store("vector_store/")  # Load FAISS vector store
+        
+        # Modified initial reflection prompt with context placeholder
+        self.initial_reflection = ChatPromptTemplate.from_messages([
+            ("system", """You are an experienced programmer analyzing a coding problem.
+            
+            Context from relevant files:
+            {context}
+            
+            Analyze the following problem:"""),
+            ("user", "{description}")
+        ])
+
+    def _get_context_from_vector_store(self, query: str) -> str:
+        """Retrieve relevant context using vector search"""
+        try:
+            # Perform similarity search
+            docs = self.vector_store.similarity_search(query, k=5)
+            
+            # Get unique file paths from metadata
+            unique_paths = list({doc.metadata['source'] for doc in docs})
+            
+            # Read full file contents and format them for context
+            context = []
+            for path in unique_paths:
+                if os.path.exists(path):
+                    with open(path, 'r') as f:
+                        content = f.read()
+                        context.append(f"File: {path}\nContent:\n{content}")
+            
+            return "\n\n".join(context)
+        
+        except Exception as e:
+            print(f"Error retrieving context: {e}")
+            return ""
+
+    def reflect(self, description: str) -> str:
+        """Enhanced reflection with vector search context"""
+        # Get relevant context (full file contents)
+        context = self._get_context_from_vector_store(description)
+        
+        # Build the enhanced chain
+        chain = (
+            self.initial_reflection.partial(context=context)
+            | self.llm
+            | StrOutputParser()
+            | self.complexity_elaboration
+            | self.llm
+            | StrOutputParser()
+        )
+        
+        return chain.invoke({"description": description})
+```
+
+---
+
+### Key Changes
+
+1. **Removed Chunking**:
+   - The `_get_context_from_vector_store` method now reads the entire content of each file instead of splitting it into chunks.
+   - This ensures that the full file is passed as part of the context.
+
+2. **Unique File Paths**:
+   - The `unique_paths` variable ensures that no duplicate files are processed.
+
+3. **Direct File Reading**:
+   - Each file's content is read in its entirety and appended to the `context` list.
+
+4. **Context Formatting**:
+   - File paths and contents are formatted into a clear structure for inclusion in the prompt.
+
+---
+
+### Example Usage
+
+```python
+# Initialize the ReflectionChain
+chain = ReflectionChain()
+
+# Provide a coding problem description
+description = "How can I optimize database queries in Python?"
+
+# Run the reflection chain with vector-based context injection
+result = chain.reflect(description)
+
+# Print the result
+print(result)
+```
+
+---
+
+### Visual Workflow
+
+```mermaid
+graph TD
+    A[User Query] --> B(Vector Search]
+    B --> C{Retrieve Relevant Files}
+    C --> D[Read Full File Contents]
+    D --> E[Format Context for Prompt]
+    E --> F[Inject Context into Reflection Chain]
+    F --> G[LLM Analysis]
+    G --> H[Final Output]
+```
+
+---
+
+### Best Practices
+
+1. **Avoid Overloading Context**:
+   - Ensure that the combined size of all file contents does not exceed token limits for your LLM (e.g., GPT-4 has a limit of ~8k or ~32k tokens depending on the model).
+
+2. **Error Handling**:
+   - Handle cases where files might be missing or inaccessible.
+
+3. **File Filtering**:
+   - Consider filtering files based on relevance or size to avoid unnecessary processing.
+
+4. **Token Usage Monitoring**:
+   - If necessary, truncate or summarize file contents dynamically to fit within token limits.
+
+---
+
+This updated implementation ensures that full file contents are used as context in your reflection chain, providing richer and more comprehensive input for analysis.
+
+Citations:
+[1] https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/35208055/214a7055-1f2a-4b33-a277-a39a4545bdd0/paste.txt
