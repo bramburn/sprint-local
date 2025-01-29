@@ -15,17 +15,21 @@ Here's a comprehensive diagram setup for Navigator Agents using LangChain's grap
 navigator_agent/
 ├── agents/
 │   ├── navigator_agent.py        # Main coordinator
+│   ├── driver_agent.py           # Driver main agent
 │   ├── subagents/
-│   │   ├── reflection.py        # generate_reflection agent
-│   │   ├── solutions.py         # generate_possible_solutions
-│   │   └── analysis.py          # analyze_test_failure/static_error
+│   │   ├── reflection.py         # generate_reflection agent
+│   │   ├── solutions.py          # generate_possible_solutions
+│   │   ├── analysis.py           # analyze_test_failure/static_error
+│   │   └── driver_subagent.py    # Driver subagent
+├── methods_flow/                 # Methods flow definitions
+│   └── flow_definitions.py       # Definitions of various methods flows
 ├── langchain_graph/
-│   ├── agent_graph.py           # LangGraph workflow definition
-│   └── node_definitions/        # Individual graph nodes
+│   ├── agent_graph.py            # LangGraph workflow definition
+│   └── node_definitions/         # Individual graph nodes
 ├── schemas/
-│   └── agent_state.py           # Pydantic state models
+│   └── agent_state.py            # Pydantic state models
 └── config/
-    └── graph_config.toml        # LangGraph parameters
+    └── graph_config.toml         # LangGraph parameters
 ```
 
 ## LangChain Graph Class Diagram (PlantUML)
