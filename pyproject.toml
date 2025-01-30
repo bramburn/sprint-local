@@ -17,6 +17,7 @@ ipykernel = "^6.29.5"
 langchain-community = "^0.3.16"
 langchain-ollama = "^0.2.2"
 jupyter = "^1.1.1"
+langchain-core = "^0.3.33"
 
 
 [tool.poetry.group.dev.dependencies]

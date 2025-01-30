@@ -1,151 +1,229 @@
 import os
 import logging
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from langgraph.graph import StateGraph, END
 from langchain_core.embeddings import Embeddings
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 
-from .state.agent_state import AgentState
+# Import Ollama embeddings and keyword extraction
+from src.model.embed import get_ollama_embeddings
 from .nodes.keyword_extraction import extract_keywords
-from .nodes.vector_search import create_vector_search
-from .nodes.file_analysis import analyze_files
-from .nodes.solution_generator import generate_solutions
-from .models.schemas import AgentOutput
-from .utils.repo_scanner import RepositoryScanner
-from .utils.vector_store_creator import VectorStoreCreator
 
-class ReflectionWorkflow:
+class SimpleVectorSearchWorkflow:
     def __init__(
         self,
-        repo_path: str,
         vector_store_path: str = "vector_store",
-        embeddings: Optional[Embeddings] = None,
-        force_reindex: bool = False
+        base_code_path: Optional[str] = None,
+        embeddings: Optional[Embeddings] = None
     ):
         """
-        Initialize ReflectionWorkflow with repository scanning and vector store creation.
+        Initialize SimpleVectorSearchWorkflow with vector store configuration.
         
         Args:
-            repo_path: Path to the repository
-            vector_store_path: Path to save vector store
+            vector_store_path: Path to the vector store
+            base_code_path: Base path for code repository
             embeddings: Optional custom embeddings
-            force_reindex: Force recreation of vector store
         """
-        self.repo_path = repo_path
         self.vector_store_path = vector_store_path
-        self.embeddings = embeddings or OpenAIEmbeddings()
+        # Use provided base_code_path or default to current working directory
+        self.base_code_path = base_code_path or os.getcwd()
+        
+        # Robust embeddings initialization
+        try:
+            self.embeddings = embeddings or get_ollama_embeddings()
+        except Exception as e:
+            logging.error(f"Failed to initialize embeddings: {e}")
+            # Fallback to a default or raise
+            from langchain_community.embeddings import FakeEmbeddings
+            self.embeddings = FakeEmbeddings(size=1024)
         
         # Configure logging
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
         
-        # Scan repository and create vector store
-        if force_reindex or not self._vector_store_exists():
-            self._create_vector_store()
-        
         # Initialize workflow
         self.workflow = self._create_workflow()
     
-    def _vector_store_exists(self) -> bool:
-        """Check if vector store already exists."""
-        return (
-            os.path.exists(self.vector_store_path) and 
-            any(f.endswith('_index.faiss') for f in os.listdir(self.vector_store_path))
-        )
-    
-    def _create_vector_store(self):
-        """
-        Scan repository and create vector store.
-        Uses RepositoryScanner and VectorStoreCreator.
-        """
-        # Scan repository
-        scanner = RepositoryScanner(self.repo_path)
-        files = scanner.scan()
-        
-        # Create vector store
-        creator = VectorStoreCreator(self.vector_store_path)
-        creator.create_from_files(files, namespace='project')
-        
-        self.logger.info(f"Vector store created for repository: {self.repo_path}")
-    
     def _create_workflow(self) -> StateGraph:
         """
-        Create the LangGraph workflow for code reflection.
+        Create a LangGraph workflow for vector search with keyword extraction.
         
         Returns:
             Compiled StateGraph
         """
-        builder = StateGraph(AgentState)
+        def keyword_extraction_node(state: Dict[str, Any]) -> Dict[str, Any]:
+            """
+            Extract keywords and generate search queries from the raw input.
+            
+            Args:
+                state: Current workflow state with raw_prompt
+            
+            Returns:
+                Updated state with extracted keywords and search queries
+            """
+            try:
+                # Use keyword extraction to generate queries
+                extraction_result = extract_keywords(state)
+                
+                # Get the primary query and related queries
+                queries = extraction_result["keywords"]
+                search_scope = extraction_result["query_details"].get("search_scope", 5)
+                
+                # Update state with extracted information
+                return {
+                    **state,
+                    "queries": queries,
+                    "search_scope": search_scope,
+                    "query_details": extraction_result["query_details"]
+                }
+            except Exception as e:
+                self.logger.error(f"Keyword extraction failed: {e}")
+                # Fallback to using raw prompt as query
+                return {
+                    **state,
+                    "queries": [state.get("raw_prompt", "")],
+                    "search_scope": 5,
+                    "query_details": {"error": str(e)}
+                }
         
-        # Add vector search node with dynamic configuration
-        vector_search_node = create_vector_search(
-            self.vector_store_path, 
-            self.embeddings
-        )
+        def vector_search_node(state: Dict[str, Any]) -> Dict[str, Any]:
+            """
+            Perform vector search using extracted queries.
+            
+            Args:
+                state: Current workflow state with queries
+            
+            Returns:
+                Updated state with search results
+            """
+            try:
+                # Load the vector store
+                vector_store = FAISS.load_local(
+                    self.vector_store_path, 
+                    self.embeddings,
+                    allow_dangerous_deserialization=True
+                )
+                
+                all_similar_files = set()  # Use set to avoid duplicates
+                search_scope = state.get("search_scope", 5)
+                
+                # Search for each query
+                for query in state.get("queries", []):
+                    if not query:  # Skip empty queries
+                        continue
+                        
+                    try:
+                        # Perform similarity search
+                        results = vector_store.similarity_search(
+                            query, 
+                            k=search_scope
+                        )
+                        
+                        # Extract and process file paths
+                        for doc in results:
+                            source = doc.metadata.get('source', '')
+                            if source:
+                                # Join with base_code_path and normalize
+                                full_path = os.path.normpath(os.path.join(self.base_code_path, source))
+                                # Verify the file exists
+                                if os.path.exists(full_path):
+                                    all_similar_files.add(full_path)
+                                else:
+                                    self.logger.warning(f"File not found: {full_path}")
+                    except Exception as query_error:
+                        self.logger.error(f"Error processing query '{query}': {query_error}")
+                        continue  # Continue with next query
+                
+                # Convert set back to list for return
+                similar_files = list(all_similar_files)
+                
+                # Log search results
+                if similar_files:
+                    self.logger.info(f"Found {len(similar_files)} unique files across all queries")
+                    self.logger.debug(f"Files found: {similar_files}")
+                else:
+                    self.logger.warning("No files found for any query")
+                
+                return {
+                    **state,
+                    'similar_files': similar_files
+                }
+            
+            except Exception as e:
+                self.logger.error(f"Vector search failed: {e}")
+                return {
+                    **state,
+                    'similar_files': [],
+                    'error': str(e)
+                }
         
-        # Define workflow nodes
-        builder.add_node("extract_keywords", extract_keywords)
+        # Create state graph
+        builder = StateGraph(dict)
+        
+        # Add nodes
+        builder.add_node("keyword_extraction", keyword_extraction_node)
         builder.add_node("vector_search", vector_search_node)
-        builder.add_node("analyze_files", analyze_files)
-        builder.add_node("generate_solutions", generate_solutions)
         
-        # Define workflow edges
-        builder.set_entry_point("extract_keywords")
-        builder.add_edge("extract_keywords", "vector_search")
-        builder.add_edge("vector_search", "analyze_files")
-        builder.add_edge("analyze_files", "generate_solutions")
+        # Add edges
+        builder.add_edge("keyword_extraction", "vector_search")
         
-        # Add conditional edges for retry and completion
-        builder.add_conditional_edges(
-            "generate_solutions",
-            lambda state: "end" if state["solutions"] else "retry",
-            {
-                "end": END,
-                "retry": "extract_keywords"
-            }
-        )
+        # Set entry and finish points
+        builder.set_entry_point("keyword_extraction")
+        builder.set_finish_point("vector_search")
         
         return builder.compile()
     
-    def run(self, prompt: str) -> AgentOutput:
+    def run(self, query: str) -> List[str]:
         """
-        Run the reflection workflow for a given prompt.
+        Run the vector search workflow for a given query.
         
         Args:
-            prompt: User's task or requirement
+            query: Search query or task description
         
         Returns:
-            Structured agent output
+            List of similar file paths
         """
+        if not query or not isinstance(query, str):
+            self.logger.error("Invalid query provided")
+            return []
+            
         try:
-            # Initialize state
+            # Initialize state with raw prompt
             initial_state = {
-                "raw_prompt": prompt,
-                "keywords": [],
-                "vector_results": [],
-                "file_analysis": [],
-                "solutions": [],
-                "errors": [],
-                "search_scope": 5
+                'raw_prompt': query,
+                'similar_files': [],
+                'start_time': self.logger.info(f"Starting search for query: {query}")
             }
             
             # Execute workflow
             result = self.workflow.invoke(initial_state)
             
-            # Create structured output
-            output = AgentOutput(
-                task=prompt,
-                files_analyzed=result.get("file_analysis", []),
-                solutions=result.get("solutions", []),
-                errors=result.get("errors", [])
-            )
+            # Log workflow completion details
+            self.logger.info("Vector search workflow completed")
             
-            self.logger.info(f"Workflow completed for prompt: {prompt}")
-            return output
+            if 'error' in result:
+                self.logger.error(f"Workflow encountered an error: {result['error']}")
+            
+            query_details = result.get('query_details', {})
+            if query_details:
+                self.logger.info("Query execution details:")
+                if 'primary_query' in query_details:
+                    self.logger.info(f"- Primary query: {query_details['primary_query']}")
+                if 'related_queries' in query_details:
+                    self.logger.info(f"- Related queries: {query_details['related_queries']}")
+                if 'reasoning' in query_details:
+                    self.logger.info(f"- Query reasoning: {query_details['reasoning']}")
+            
+            similar_files = result.get('similar_files', [])
+            
+            # Validate results
+            if not similar_files:
+                self.logger.warning("No files found in search results")
+            else:
+                self.logger.info(f"Found {len(similar_files)} relevant files")
+            
+            return similar_files
         
         except Exception as e:
-            self.logger.error(f"Workflow execution failed: {e}")
-            return AgentOutput(
-                task=prompt,
-                errors=[str(e)]
-            )
+            self.logger.error(f"Workflow execution failed: {e}", exc_info=True)
+            return []

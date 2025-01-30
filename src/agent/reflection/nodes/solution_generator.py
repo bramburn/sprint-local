@@ -5,7 +5,7 @@ from langchain_core.language_models import BaseLanguageModel
 from src.llm.openrouter import get_openrouter
 from src.agent.reflection.file_analyser import FileAnalyser
 from ..state.agent_state import AgentState
-from ..models.schemas import CodeSolution, FileAnalysis
+from src.schemas.unified_schemas import CodeSolution, FileAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -74,57 +74,59 @@ def _generate_solution_prompt(
     except Exception:
         return prompt
 
-def generate_solutions(state: AgentState) -> Dict:
+def generate_solution(
+    problem: str, 
+    keywords: List[str], 
+    context: Dict
+) -> Dict:
     """
-    Generate code solutions based on file analysis and original prompt.
+    Generate a solution based on the problem description, keywords, and context.
     
     Args:
-        state: Current agent state
+        problem: The problem description
+        keywords: Extracted keywords
+        context: File analysis context
     
     Returns:
-        Dict with generated solutions
+        Dict with generated solution details
     """
-    # Initialize LLM
-    llm = get_openrouter(model="meta-llama/llama-3.2-11b-vision-instruct")
+    # Use OpenRouter LLM for solution generation
+    llm = get_openrouter()
     
-    solutions = []
-    
-    # Generate solution for each analyzed file
-    for file_analysis in state.get("file_analysis", []):
-        try:
-            # Generate comprehensive solution prompt
-            solution_prompt = _generate_solution_prompt(
-                task=state['raw_prompt'], 
-                file_analysis=file_analysis,
-                llm=llm
-            )
-            
-            # Generate solution using LLM
-            solution_text = llm.invoke(solution_prompt).content
-            
-            # Create CodeSolution with enhanced details
-            solution = CodeSolution(
-                file_path=file_analysis.path,
-                changes=[solution_text],
-                confidence=file_analysis.relevance,
-                reasoning=(
-                    f"Solution generated based on task requirements, "
-                    f"file context, and complexity analysis"
-                ),
-                dependencies=file_analysis.dependencies,
-                potential_improvements=file_analysis.potential_issues
-            )
-            
-            solutions.append(solution)
-        
-        except Exception as file_err:
-            logger.warning(f"Solution generation failed for {file_analysis.path}: {file_err}")
-            state.setdefault("errors", []).append(
-                f"Solution generation failed for {file_analysis.path}: {file_err}"
-            )
-    
-    logger.info(f"Generated {len(solutions)} code solutions")
-    
-    return {
-        "solutions": solutions
+    # Prepare solution context
+    solution_context = {
+        "problem": problem,
+        "keywords": keywords,
+        "context": context
     }
+    
+    # Generate solution prompt
+    solution_prompt = f"""
+    Problem: {problem}
+    Keywords: {', '.join(keywords)}
+    
+    Context:
+    {context}
+    
+    Provide a comprehensive solution addressing the problem, 
+    considering the given context and keywords.
+    """
+    
+    try:
+        solution_text = llm.invoke(solution_prompt)
+        
+        # Create CodeSolution object
+        code_solution = CodeSolution(
+            explanation=solution_text,
+            code_samples=[],  # You might want to enhance this
+            keywords=keywords
+        )
+        
+        return code_solution.to_dict()
+    
+    except Exception as e:
+        logger.error(f"Solution generation failed: {e}")
+        return {
+            "error": str(e),
+            "explanation": "Unable to generate solution"
+        }

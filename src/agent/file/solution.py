@@ -13,7 +13,12 @@ from src.utils.get_file import read_file_with_line_numbers
 from src.vector.load import load_vector_store, load_vector_store_by_name
 from src.vector.create import XMLVectorCreator
 from src.agent.reflection.file_analyser import FileAnalyser
-from src.schemas.solution import CodeSolution, CodeSample, FileDependency
+from src.schemas.unified_schemas import CodeSolution, CodeSample, FileDependency
+from src.utils.file_analysis import (
+    extract_dependencies, 
+    calculate_complexity, 
+    identify_potential_issues
+)
 
 class FileAgent:
     """

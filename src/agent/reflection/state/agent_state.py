@@ -1,6 +1,6 @@
 from typing import TypedDict, Annotated, List, Dict, Optional
 from langgraph.graph import StateGraph
-from ..models.schemas import FileAnalysis, CodeSolution
+from src.schemas.unified_schemas import FileAnalysis, CodeSolution
 
 class AgentState(TypedDict):
     """

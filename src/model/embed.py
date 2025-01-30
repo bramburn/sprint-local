@@ -1,4 +1,5 @@
 from langchain_ollama import OllamaEmbeddings
+
 from config import config
 
 def get_ollama_embeddings():

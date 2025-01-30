@@ -9,7 +9,7 @@ from langchain_core.embeddings import Embeddings
 from src.utils.get_file import read_file_with_line_numbers
 from src.agent.reflection.file_analyser import FileAnalyser
 from ..state.agent_state import AgentState
-from ..models.schemas import FileAnalysis
+from src.schemas.unified_schemas import FileAnalysis
 
 logger = logging.getLogger(__name__)
 
