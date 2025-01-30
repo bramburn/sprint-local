@@ -204,3 +204,4 @@ repo-output.md
 
 # Add to existing .gitignore
 vector_store/
+repomix-*/

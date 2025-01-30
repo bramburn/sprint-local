@@ -16,15 +16,13 @@ Follow the instruction carefully to return the best solution for the problem.
 
 ### requirement/problem
 
-{requirement}
+{requirements}
 
 
 ### Epics
 
 {epics}
 
-# output instruction
 
-{output_instruction}
 
 Your analysis and selected solution:

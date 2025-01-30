@@ -1,11 +1,13 @@
 import os
 import logging
-from typing import List, Dict, Any
+from typing import List
 
-from langchain_core.output_parsers import PydanticOutputParser, OutputParserException
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.exceptions import OutputParserException
+
 from langchain_core.prompts import PromptTemplate
 from langchain.output_parsers import RetryOutputParser
-from langchain_openai import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -51,7 +53,7 @@ class EpicChooser:
             self.retry_parser = RetryOutputParser.from_llm(
                 parser=self.base_parser,
                 llm=self.llm,
-                max_retries=3
+                max_retries=4
             )
             
             # Load the prompt template
@@ -61,7 +63,6 @@ class EpicChooser:
                 'choice.md'
             )
 
-            # Rest of the initialization remains the same
             with open(template_path, 'r') as f:
                 template_str = f.read()
 
@@ -72,6 +73,10 @@ class EpicChooser:
                     "format_instructions": self.base_parser.get_format_instructions()
                 }
             )
+            
+            # Create the parser chain without StrOutputParser
+            self.parser_chain = self.prompt | self.llm | self.retry_parser
+            
         except Exception as e:
             logger.error(f"Error initializing EpicChooser: {e}")
             raise
@@ -103,20 +108,17 @@ class EpicChooser:
             EpicSelection: The selected epic with rationale.
         """
         try:
-            # Handle empty epic list
-            if not epics:
-                return EpicSelection(
-                    chosen_epic_id="no_epics",
-                    rationale="No epics provided for selection. Unable to choose the best epic."
-                )
+            # Create a PromptValue
+            prompt_value = self.prompt.format_prompt(
+                requirements=requirements,
+                epics=self.format_epics(epics)
+            )
             
-            # Invoke the chain with retry parsing
-            chain = self.prompt | self.llm | self.retry_parser
-            
-            result = chain.invoke({
-                'requirements': requirements,
-                'epics': self.format_epics(epics)
-            })
+            # Use the parser chain with both completion and prompt
+            result = self.retry_parser.parse_with_prompt(
+                completion=self.llm.invoke(prompt_value.to_string()),
+                prompt_value=prompt_value
+            )
             
             # If the chosen_epic_id is not in the original epics, default to the first epic
             logger.info(f"Chosen epic ID: {result.chosen_epic_id}")

@@ -4,14 +4,12 @@ from langchain.prompts import HumanMessagePromptTemplate
 from langchain.prompts import SystemMessagePromptTemplate
 from src.agent.reflection.file_analyser import FileAnalyser
 from src.llm.openrouter import get_openrouter
-from src.vector.load import load_vector_store
 import os
-from langchain.schema.runnable import RunnablePassthrough, RunnableParallel
 import logging
 from typing import List
 from src.agent.reflection.choose_best_option import EpicChooser, EpicSelection
-from langchain_core.output_parsers import PydanticOutputParser, OutputParserException
-from pydantic import ValidationError
+from src.vector.load import load_vector_store
+
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +64,7 @@ class ReflectionChain:
         with open(
             os.path.join(
                 os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
+                    os.path.dirname(__file__),
                     "prompts",
                     "backlog.md",
                 )
@@ -80,7 +78,7 @@ class ReflectionChain:
         with open(
             os.path.join(
                 os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
+                    os.path.dirname(__file__),
                     "prompts",
                     "backlog_step_two.md",
                 )
@@ -102,7 +100,7 @@ class ReflectionChain:
         """
         try:
             # Perform similarity search
-            docs = vector_store.similarity_search(query, k=5)
+            docs = self.vector_store.similarity_search(query, k=15)
             
             # Get unique file paths from metadata, handling missing 'full_path'
             unique_paths = list({doc.metadata.get("full_path", "") for doc in docs if "full_path" in doc.metadata})
@@ -137,6 +135,7 @@ class ReflectionChain:
         Returns:
         str: A dictionary with both the initial reflection and complexity elaboration outputs.
         """
+        self.vector_store = load_vector_store(vector_store_path)
         # Retrieve context from vector store
         file_content, analysis = self._get_context_from_vector_store(requirements)
 
@@ -156,7 +155,7 @@ class ReflectionChain:
         # Use EpicChooser to select the best initial reflection
         epic_chooser = EpicChooser()
         epic_selection: EpicSelection = epic_chooser.choose_best_epic(
-            requirement=requirements, 
+            requirements=requirements, 
             epics=initial_reflections
         )
 
@@ -182,7 +181,7 @@ class ReflectionChain:
 
         # Use EpicChooser to select the best complexity elaboration
         complexity_epic_selection: EpicSelection = epic_chooser.choose_best_epic(
-            requirement=requirements, 
+            requirements=requirements, 
             epics=complexity_elaborations
         )
 
