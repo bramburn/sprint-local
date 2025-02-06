@@ -1,0 +1,20 @@
+{
+  "output": {
+    "style": "xml",
+    "filePath": "repo-output.xml",
+    "removeComments": false,
+    "showLineNumbers": false
+  },
+  "ignore": {
+    "customPatterns": [
+      "docs/**",
+      "dist/**",
+      "outputs/**"
+    ]
+  },
+  "include": [
+    "**/*.py",
+    "pyproject.toml",
+    ".windsurfrules"
+  ]
+}

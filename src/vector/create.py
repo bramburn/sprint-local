@@ -13,7 +13,6 @@ class XMLVectorCreator:
             chunk_overlap=200
         )
         
-        
     def parse_xml(self, xml_content: str) -> Dict[str, str]:
         """Parse the XML-like content using regex"""
         patterns = {
@@ -33,12 +32,16 @@ class XMLVectorCreator:
             
         return files
     
-    def process_files(self, files: Dict[str, str]) -> List[str]:
+    def _construct_full_path(self, path: str, base_path: str = None) -> str:
+        """Helper method to construct the full path"""
+        return os.path.join(base_path, path) if base_path else path
+    
+    def process_files(self, files: Dict[str, str], base_path: str = None) -> List[str]:
         """Process and chunk file contents"""
         chunks = []
         for path, content in files.items():
-            # Add path as metadata
-            full_path = os.path.join(self.base_path, path) if self.base_path else path
+            # Construct full path using helper method
+            full_path = self._construct_full_path(path, base_path)
             metadata = {
                 "source": path,
                 "full_path": os.path.abspath(full_path)
@@ -60,14 +63,11 @@ class XMLVectorCreator:
 
     def create_vector_store(self, xml_path: str, output_dir: str, base_path: str = None) -> None:
         """Main method to create and save vector store"""
-        self.base_path = base_path or os.getcwd()  # Default to current working directory
-        
         with open(xml_path, 'r', encoding='utf-8') as f:
             xml_content = f.read()
 
-        
         files = self.parse_xml(xml_content)
-        chunks = self.process_files(files)
+        chunks = self.process_files(files, base_path)
         dir_chunks = self.process_directory_structure()
         
         # Create and save FAISS index

@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Graph Workflow Debug",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "poetry",
+            "args": ["run", "python", "-m", "src.agent.workflow.graph"],
+            "console": "integratedTerminal",
+            "env": {},
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "presentation": {
+                "hidden": false,
+                "group": "",
+                "order": 1
+            }
+        }
+    ]
+}
