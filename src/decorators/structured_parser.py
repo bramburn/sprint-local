@@ -6,6 +6,9 @@ from src.llm.openrouter import get_openrouter
 from langchain.output_parsers import PydanticOutputParser
 from time import sleep
 import random
+from src.llm.ollama import get_ollama
+from typing import Optional
+from langchain.chat_models import ChatOpenAI
 
 # Configure logging
 logging.basicConfig(
@@ -27,6 +30,7 @@ class StructuredParser:
         pydantic_model: Type[BaseModel],
         temperature: float = 0.7,
         model_name: str = "meta-llama/llama-3.1-8b-instruct",
+        llm: Optional[ChatOpenAI] = None,
     ):
         """Initialize the StructuredParser with a Pydantic model and temperature setting."""
         if not issubclass(pydantic_model, BaseModel):
@@ -42,7 +46,11 @@ class StructuredParser:
             model_name = "meta-llama/llama-3.1-8b-instruct"
 
         # Initialize ChatOpenAI with optimized OpenRouter settings
-        self.llm = get_openrouter(model=model_name,temperature=temperature)
+        if llm == None:
+            llm = get_openrouter(model=model_name,temperature=temperature)
+
+        self.llm = llm
+        self.temperature = temperature
         logger.info(
             f"Initialized ChatOpenAI with model: {model_name}, temperature: {temperature}"
         )

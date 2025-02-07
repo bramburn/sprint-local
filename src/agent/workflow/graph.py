@@ -11,11 +11,24 @@ from src.utils.dir_tool import scan_directory
 from langchain_core.runnables import RunnableParallel, RunnableLambda
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import ChatPromptTemplate
-from src.agent.workflow.schemas import DirectoryStructureInformation, SearchQuery, parse_search_queries
+from src.agent.workflow.schemas import (
+    DirectoryStructureInformation,
+    SearchQuery,
+    parse_search_queries,
+)
 from langchain.output_parsers import RetryOutputParser
 from langchain_core.messages import AIMessage
 import json
 from src.utils.directory_cache import DirectoryAnalysisCache
+from typing import List, Dict
+import os
+from src.agent.workflow.backlog import BacklogState, build_backlog_graph
+
+
+class FileInformation(TypedDict):
+    name: str
+    path: str
+    content: str
 
 
 # Define state schema
@@ -24,9 +37,13 @@ class GraphState(TypedDict):
     working_dir: str
     documents: List[Document]
     files: List[str]
+    # relevant files
     dir_files: List[str]
+    file_information: List[FileInformation]
+
     status: str
     answer: str
+    # meta information
 
     framework: str
     modules: List[str]
@@ -35,6 +52,8 @@ class GraphState(TypedDict):
     explanation: str
 
     search_queries: List[SearchQuery]
+
+    refined_task: str
 
 
 # Initialize graph builder
@@ -45,19 +64,45 @@ def retrieve_documents(state: GraphState) -> GraphState:
     """Node to retrieve relevant documents from vector store"""
     vector_store_path = r"C:\dev\sprint_app\sprint-py\vector_store\roo"
     vector_store: FAISS = load_vector_store(vector_store_path)
-    
+
     # Search with main question
     docs: List[Document] = vector_store.similarity_search(state["question"], k=5)
-    
+
     # Search with additional search queries if they exist
     if "search_queries" in state and state["search_queries"]:
         for query in state["search_queries"]:
             additional_docs = vector_store.similarity_search(query, k=3)
             # Extend docs list, avoiding duplicates
             docs.extend([doc for doc in additional_docs if doc not in docs])
-    
-    files = [doc.metadata["source"] for doc in docs]
-    return {"documents": docs, "files": files}
+
+    # Remove duplicates in the docs so that the source metadata is unique
+    docs = list({doc.metadata["source"]: doc for doc in docs}.values())
+
+    # Populate file information
+    file_information: List[FileInformation] = []
+    for doc in docs:
+        file_path = os.path.join(state["working_dir"], doc.metadata["source"])
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                file_content = f.read()
+            file_information.append(
+                {
+                    "name": os.path.basename(file_path),
+                    "path": file_path,
+                    "content": file_content,
+                }
+            )
+        except Exception as e:
+            # Log the error or handle it appropriately
+            print(f"Error reading file {file_path}: {e}")
+
+    files = [os.path.join(state["working_dir"], doc.metadata["source"]) for doc in docs]
+
+    return {
+        "documents": docs,
+        "files": files,
+        "file_information": file_information,
+    }
 
 
 def generate_answer(state: GraphState) -> GraphState:
@@ -118,8 +163,6 @@ def extract_properties(data: Any) -> Dict[str, Any]:
     return {}
 
 
-
-
 def analyse_dir(state: GraphState) -> GraphState:
     """Node to analyse directory structure"""
     if not state["working_dir"]:
@@ -129,7 +172,7 @@ def analyse_dir(state: GraphState) -> GraphState:
 
     # Initialize cache
     directory_cache = DirectoryAnalysisCache()
-    
+
     # Try to retrieve cached analysis
     cached_analysis = directory_cache.get(state["working_dir"])
     if cached_analysis:
@@ -158,11 +201,11 @@ def analyse_dir(state: GraphState) -> GraphState:
     dir_f = "\n".join(files)
 
     # analyse_dir
-    llm = get_openrouter(temperature=0)
+    llm = get_ollama(model="qwen2.5:latest", temperature=0)
     parser = PydanticOutputParser(pydantic_object=DirectoryStructureInformation)
     retry_parser = RetryOutputParser.from_llm(
         parser=parser,
-        llm=get_ollama(model="qwen2.5:latest", temperature=0),
+        llm=llm,
         max_retries=5,
     )
 
@@ -198,7 +241,7 @@ Your analysis of the directory structure:"""
                 "format_instructions": parser.get_format_instructions(),
             }
         )
-        
+
         # Prepare analysis for caching
         analysis_result = {
             "files": files,
@@ -208,10 +251,10 @@ Your analysis of the directory structure:"""
             "configuration_file": result.configuration_file,
             "explanation": result.explanation,
         }
-        
+
         # Cache the analysis
         directory_cache.set(directory, analysis_result)
-        
+
         return {
             "dir_files": files,
             "framework": result.framework,
@@ -242,7 +285,8 @@ Your analysis of the directory structure:"""
 def generate_search_queries(state: GraphState) -> GraphState:
     """Node to generate search queries based on directory structure"""
 
-    prompt = ChatPromptTemplate.from_template("""
+    prompt = ChatPromptTemplate.from_template(
+        """
     With the following directory structure:
     {framework}
     Core components: {modules}
@@ -254,9 +298,8 @@ def generate_search_queries(state: GraphState) -> GraphState:
     {question}
 
 
-    """)
-
-   
+    """
+    )
 
     prefilled = prompt.partial(
         framework=state["framework"],
@@ -265,26 +308,21 @@ def generate_search_queries(state: GraphState) -> GraphState:
         configuration_file=state["configuration_file"],
         explanation=state["explanation"],
         question=state["question"],
-      
     )
 
-    llm = get_openrouter()
-    
-    
-    chain = prefilled | llm 
+    llm = get_ollama(model="qwen2.5:latest", temperature=0)
 
-    
+    chain = prefilled | llm
+
     result = chain.invoke({"question": state["question"]})
 
-    if(isinstance(result, AIMessage)):
+    if isinstance(result, AIMessage):
         result = result.content
 
     result1: SearchQuery = parse_search_queries(result)
-    
 
     state["search_queries"] = result1.queries
     return state
-
 
 
 def find_relevant_files(state: GraphState) -> GraphState:
@@ -297,6 +335,28 @@ def find_relevant_files(state: GraphState) -> GraphState:
     return {"files": files}
 
 
+def refine_task(state: GraphState) -> GraphState:
+    """Node to refine task based on retrieved documents"""
+    context = "\n\n".join([doc.page_content for doc in state["documents"]])
+    question = state["question"]
+
+    prompt = ChatPromptTemplate.from_template(
+        f"""  
+    with the provided context:
+    {context}
+    Refine the original task:
+    {question}
+    """
+    )
+
+    llm = get_ollama(model="qwen2.5:latest", temperature=0)
+    chain = prompt | llm
+    result = chain.invoke({"question": question, "context": context})
+    if isinstance(result, AIMessage):
+        result = result.content
+    return {"refined_task": result}
+
+
 def build_graph():
     graph_builder = StateGraph(GraphState)
     # Add nodes to graph
@@ -304,13 +364,15 @@ def build_graph():
     graph_builder.add_node("retrieve", retrieve_documents)
     graph_builder.add_node("generate", generate_answer)
     graph_builder.add_node("generate_queries", generate_search_queries)
+    graph_builder.add_node("refine", refine_task)
 
     # Set up edges
     graph_builder.add_edge(START, "analyse_dir")
     graph_builder.add_edge("analyse_dir", "generate_queries")
     graph_builder.add_edge("generate_queries", "retrieve")
     graph_builder.add_edge("retrieve", "generate")
-    graph_builder.add_edge("generate", END)
+    graph_builder.add_edge("generate", "refine")
+    graph_builder.add_edge("refine", END)
 
     # Compile the graph
     graph = graph_builder.compile()
@@ -325,19 +387,48 @@ def main(question: str):
     # Execute graph
     final_state = graph.invoke(initial_state)
 
+    # Prepare results for output
+    files_found = "\n".join(f"- {file}" for file in final_state["files"])
+
     # Print results
-    print("\nFinal State:")
-    print(f"Question: {final_state['question']}")
-    print(f"Documents Found: {len(final_state['documents'])}")
-    print("Files Found:")
-    for file in final_state["files"]:
-        print(f"- {file}")
-    print(f"Framework: {final_state['framework']}")
-    print(f"Modules: {', '.join(final_state['modules'])}")
-    print(f"Settings File: {final_state['settings_file']}")
-    print(f"Configuration File: {final_state['configuration_file']}")
-    print(f"Explanation: {final_state['explanation']}")
+    final_output = """
+Final State:
+Question: {}
+Documents Found: {}
+Files Found:
+{}
+file Content: {}
+Framework: {}
+Modules: {}
+Settings File: {}
+Configuration File: {}
+Explanation: {}
+Final Refined Task: {}
+""".format(
+        final_state["question"],
+        len(final_state["documents"]),
+        files_found,
+        "\n".join(
+            f"- {file['name']}: {file['path']}\n{file['content']}"
+            for file in final_state["file_information"]
+        ),
+        final_state["framework"],
+        ", ".join(final_state["modules"]),
+        final_state["settings_file"],
+        final_state["configuration_file"],
+        final_state["explanation"],
+        final_state["refined_task"],
+    )
+
+    backlog_graph = build_backlog_graph()
+    backlog_dict_state = {
+        "task": final_state["refined_task"],
+        "file_information": final_state["file_information"],
+        "iteration": 0,
+    }
+    backlog_graph.invoke(backlog_dict_state)
+    print(final_output)
 
 
 if __name__ == "__main__":
-    main("How can I add a new provider to cline dropdown?")
+    main("How can I add a new ai provider to cline dropdown?")

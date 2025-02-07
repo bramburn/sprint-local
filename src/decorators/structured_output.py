@@ -3,7 +3,7 @@ from typing import Type, Optional, Union, Any, Callable
 from pydantic import BaseModel
 import logging
 from src.decorators.structured_parser import StructuredParser
-
+from langchain.chat_models import ChatOpenAI
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +18,7 @@ __all__ = ["structured_output"]
 def structured_output(
     pydantic_model: Type[BaseModel],
     model_name: Optional[str] = None,
+    llm : Optional[ChatOpenAI] = None,
     max_retries: int = 6,
 ):
     """
@@ -26,6 +27,7 @@ def structured_output(
     Args:
         pydantic_model: Type[BaseModel] - Pydantic model defining the expected output structure
         model_name: Optional[str] - OpenRouter model name to override default
+        llm : Optional[ChatOpenAI] - OpenRouter model to override default
         max_retries: int - Maximum number of retries for parsing (default: 3)
 
     Returns:
