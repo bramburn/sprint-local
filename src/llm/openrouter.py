@@ -1,4 +1,4 @@
-from langchain_openai import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from config import config
 
 def get_openrouter(model: str = "meta-llama/llama-3.2-3b-instruct",max_tokens:int=8192, temperature: float = 0.7) -> ChatOpenAI:

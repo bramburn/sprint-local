@@ -8,7 +8,7 @@ from time import sleep
 import random
 from src.llm.ollama import get_ollama
 from typing import Optional
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 
 # Configure logging
 logging.basicConfig(

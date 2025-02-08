@@ -10,6 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate
 class ContentAnalysisState(TypedDict):
     task: str
     file_information: List[FileInformation]
+    content_analysis: str  # Ensure this is included in the state
 
 def load_analysis_template(file_path: str = None) -> str:
     """
@@ -50,12 +51,23 @@ def first_step_analysis(state: ContentAnalysisState) -> ContentAnalysisState:
     chain = prompt | llm 
 
     # Invoke the chain with state information
-    result = chain.invoke({
-        'file_location': state.get('file_location', 'Unknown'),
-        'content': state.get('content', 'No content provided')
-    })
+    try:
+        result = chain.invoke({
+            'file_location': state.get('file_location', 'Unknown'),
+            'content': state.get('content', 'No content provided')
+        })
+        
+        # Ensure the result is structured correctly
+        if isinstance(result, dict) and 'content_analysis' in result:
+            state['content_analysis'] = result['content_analysis']
+        else:
+            logging.error("Invalid result structure returned from chain.")
+            state['content_analysis'] = "Error: Invalid result structure."
     
-    state['content_analysis'] = result.content
+    except Exception as e:
+        logging.error(f"Error during analysis: {e}")
+        state['content_analysis'] = "Error during analysis."
+
     return state
 
 def build_graph():

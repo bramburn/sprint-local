@@ -3,7 +3,7 @@ from typing import Type, Optional, Union, Any, Callable
 from pydantic import BaseModel
 import logging
 from src.decorators.structured_parser import StructuredParser
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 
 # Configure logging
 logging.basicConfig(

@@ -14,38 +14,83 @@ def detect_framework(repo_path: str) -> FrameworkDetectionResult:
     Returns:
         Framework detection result with confidence
     """
-    files = scan_directory(repo_path)
-    
-    framework_markers = {
-        TestFramework.PYTEST: ['test_', 'conftest.py', 'pytest.ini'],
-        TestFramework.JEST: ['jest.config.js', '__tests__'],
-        TestFramework.VITEST: ['vitest.config.ts', 'vitest.config.js'],
-        TestFramework.NPM: ['package.json']
-    }
-    
-    detected_frameworks = []
-    
-    for framework, markers in framework_markers.items():
-        if any(any(marker in file for marker in markers) for file in files):
-            detected_frameworks.append(framework)
-    
-    if len(detected_frameworks) == 1:
+    try:
+        files = scan_directory(repo_path)
+        
+        # Comprehensive framework markers
+        framework_markers = {
+            # Python Testing Frameworks
+            TestFramework.PYTEST: [
+                'test_', 'conftest.py', 'pytest.ini', 
+                'tests/', 'test/', '__pycache__/test_'
+            ],
+            TestFramework.UNITTEST: [
+                'unittest', 'test_case', 'test_', 
+                'python -m unittest', 'TestCase'
+            ],
+            
+            # JavaScript/TypeScript Testing Frameworks
+            TestFramework.JEST: [
+                'jest.config.js', '__tests__', 
+                'test.js', 'test.ts', 'jest.setup.js'
+            ],
+            TestFramework.VITEST: [
+                'vitest.config.ts', 'vitest.config.js', 
+                'test.vitest.ts', 'test.vitest.js'
+            ],
+            
+            # Other Frameworks
+            TestFramework.NPM: ['package.json', 'node_modules/']
+        }
+        
+        # Scoring system for framework detection
+        framework_scores = {framework: 0 for framework in framework_markers.keys()}
+        
+        # Score frameworks based on marker presence
+        for framework, markers in framework_markers.items():
+            for marker in markers:
+                if any(marker in file.lower() for file in files):
+                    framework_scores[framework] += 1
+        
+        # Determine the most likely framework
+        max_score = max(framework_scores.values())
+        
+        if max_score == 0:
+            return FrameworkDetectionResult(
+                framework=TestFramework.UNKNOWN,
+                confidence=0.1,
+                detection_method='no_markers'
+            )
+        
+        detected_frameworks = [
+            framework for framework, score in framework_scores.items() 
+            if score == max_score
+        ]
+        
+        # Handle multiple framework detection
+        if len(detected_frameworks) > 1:
+            return FrameworkDetectionResult(
+                framework=TestFramework.UNKNOWN,
+                confidence=0.4,
+                detection_method='multiple_markers'
+            )
+        
+        # Single framework detected
+        detected_framework = detected_frameworks[0]
+        confidence = min(1.0, max_score / len(framework_markers[detected_framework]) * 0.8)
+        
         return FrameworkDetectionResult(
-            framework=detected_frameworks[0],
-            confidence=0.8,
+            framework=detected_framework,
+            confidence=confidence,
             detection_method='marker_based'
         )
-    elif len(detected_frameworks) > 1:
+    
+    except Exception as e:
+        # Log the error and return unknown framework
         return FrameworkDetectionResult(
             framework=TestFramework.UNKNOWN,
-            confidence=0.4,
-            detection_method='multiple_markers'
-        )
-    else:
-        return FrameworkDetectionResult(
-            framework=TestFramework.UNKNOWN,
-            confidence=0.1,
-            detection_method='no_markers'
+            confidence=0.0,
+            detection_method=f'error: {str(e)}'
         )
 
 def calculate_confidence(state: TestingAgentState) -> float:

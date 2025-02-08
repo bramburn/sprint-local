@@ -1,4 +1,4 @@
-from langchain_openai import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langgraph.func import task, entrypoint
 from src.llm.openrouter import get_openrouter
 from src.utils.directory import get_directory_markdown
