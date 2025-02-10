@@ -18,11 +18,12 @@ Here's a concise guide for software engineers using `add_message` annotated type
 
 **Implementation**:  
 ```python
-from typing_extensions import TypedDict, Annotated
-from langgraph.graph.message import add_messages
+from typing import List, TypedDict, Annotated
+from langchain_core.messages.base import BaseMessage
+from langchain.memory import ConversationBufferMemory
 
 class State(TypedDict):
-    messages: Annotated[list, add_messages]  # Automatic appending
+    messages: Annotated[List[BaseMessage], ConversationBufferMemory.add_messages]  # Automatic appending
     user_profile: dict  # Regular state field
 ```
 
@@ -35,7 +36,7 @@ class State(TypedDict):
 # Correct message flow
 state = {"messages": [HumanMessage("Hello")]}
 update = {"messages": [AIMessage("Hi!")]}
-new_state = add_messages(state["messages"], update["messages"])  
+new_state = ConversationBufferMemory.add_messages(state["messages"], update["messages"])  
 # [HumanMessage, AIMessage]
 ```
 
@@ -50,7 +51,7 @@ new_state = add_messages(state["messages"], update["messages"])
 **Implementation**:  
 ```python
 class ResearchState(TypedDict):
-    messages: Annotated[list, add_messages]
+    messages: Annotated[List[BaseMessage], ConversationBufferMemory.add_messages]
     search_query: str
     findings: list[str]
 ```
@@ -222,11 +223,13 @@ graph_builder.add_conditional_edges(
 **Example - Support Bot Workflow**:
 ```python
 class SupportState(TypedDict):
-    messages: Annotated[list, add_messages]
-    escalation_level: int
+    messages: Annotated[List[BaseMessage], ConversationBufferMemory.add_messages]
+    case_id: str
+    sla_clock: float
+    attachments: Annotated[list, AppendOnlyReducer]
 
 def route_complex_queries(state: SupportState):
-    if state["escalation_level"] > 2:
+    if state["sla_clock"] < 1.0:
         return "human_review"
     return "chatbot"
 ```
@@ -237,7 +240,7 @@ def route_complex_queries(state: SupportState):
 **Implementation** (TypedDict Best Practices[2]):
 ```python
 class ValidatedState(TypedDict):
-    messages: Annotated[list, add_messages]
+    messages: Annotated[List[BaseMessage], ConversationBufferMemory.add_messages]
     user_id: str  # Required field
     preferences: dict = {}  # Optional field
 ```
@@ -323,7 +326,7 @@ User Input → [State Validation] → Message List
 **Enterprise Support Bot Implementation**:
 ```python
 class EnterpriseState(TypedDict):
-    messages: Annotated[list, add_messages]
+    messages: Annotated[List[BaseMessage], ConversationBufferMemory.add_messages]
     case_id: str
     sla_clock: float
     attachments: Annotated[list, AppendOnlyReducer]

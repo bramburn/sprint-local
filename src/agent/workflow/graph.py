@@ -23,12 +23,7 @@ from src.utils.directory_cache import DirectoryAnalysisCache
 from typing import List, Dict
 import os
 from src.agent.workflow.backlog import BacklogState, build_backlog_graph
-
-
-class FileInformation(TypedDict):
-    name: str
-    path: str
-    content: str
+from src.agent.workflow.schemas import FileInformation
 
 
 # Define state schema

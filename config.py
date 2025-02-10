@@ -33,8 +33,10 @@ class Config:
         self.LLM_MODEL_NAME = os.getenv('LLM_MODEL_NAME', 'meta-llama/llama-3.2-3b-instruct')
         self.LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai')
         self.OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
-        self.OLLAMA_API_BASE = "http://localhost:10000"
+        self.OLLAMA_API_BASE = "http://192.168.0.49:10000"
         self.OLLAMA_MODEL = "nomic-embed-text:latest"
+        self.OLLAMA_MODEL_2B = "gemma2:2b"
+        self.OLLAMA_MODEL_QWEN = "codegemma:latest"
 
     def _validate_api_key(self, key_name: str) -> Optional[str]:
         """

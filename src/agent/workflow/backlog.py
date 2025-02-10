@@ -1,13 +1,15 @@
 from langgraph.graph import StateGraph, START, END
 from src.llm.ollama import get_ollama
 from typing import TypedDict, List
-from src.agent.workflow.graph import FileInformation
-
-from typing_extensions import Annotated, add_messages
+from src.agent.workflow.schemas import FileInformation
+from src.llm.openrouter import get_openrouter
+from typing_extensions import Annotated
+from langgraph.graph.message import add_messages
 from langchain.output_parsers import RetryOutputParser, PydanticOutputParser
 from pydantic import BaseModel, Field
 from typing import List
 from langchain.prompts import ChatPromptTemplate
+from config import config
 
 
 class BacklogReview(BaseModel):
@@ -53,89 +55,168 @@ class BacklogState(TypedDict):
 
 
 def review(state: BacklogState):
-    llm = get_ollama(model="qwen2.5:latest", temperature=0)
+    # llm = get_ollama(model=config.OLLAMA_MODEL_QWEN, temperature=0)
+    llm = get_openrouter()
     parser = PydanticOutputParser(pydantic_object=BacklogReview)
-    retry_parser = RetryOutputParser.from_llm(llm=llm, parser=parser, max_retries=5)
+    retry_parser = RetryOutputParser.from_llm(
+        llm=llm,
+        parser=parser,
+        max_retries=5
+    )
+    if not state.get("reviews"):
+        state["reviews"] = []
+    
+    iteration = state.get("iteration", 0)
+    if not isinstance(iteration, int):
+        iteration = 0
 
     for file_info in state["file_information"]:
         prompt = ChatPromptTemplate.from_template(
             """
-        Given the backlog do we need to use the following file for the task at hand?
-        if not, provide a detailed atomic step by step instruction.
+### Purpose
 
-        Here is an example of a step by step instruction:
-        <example>
-        1. **Navigate to Project Directory:**
-        Open your file explorer or terminal and go to the directory containing your Python project.
+You are an expert software engineer and code reviewer. Your task is to analyze a given coding task alongside a file's path and content, a detailed backlog, and specific output instructions. You must determine whether the file is relevant to the task. If the file is not relevant, provide a detailed atomic step-by-step checklist of actions. Your final answer should clearly include the required output fields.
 
-        2. **Locate `requirements.txt`:**
-        Find the `requirements.txt` file at the root of your project directory.
+### Instructions
 
-        3. **Open `requirements.txt`:**
-        Use your preferred text editor to open the `requirements.txt` file.
+- Read the coding task provided in the <requirements> block.
+- Examine the file details (path and content) provided in the <files> block.
+- Review the backlog in the <backlog> block to understand the context and constraints.
+- Consider the output instructions in the <output_instructions> block.
+- Decide if the file is relevant to the coding task:
+  - If the file is relevant, indicate that by setting the corresponding field.
+  - If the file is not relevant, generate a detailed checklist of atomic step-by-step instructions to guide the required changes.
+- Ensure your checklist is clear, concise, and organized in a list format.
+- Return your response using the following Pydantic class fields:
+  - detailed_instructions (List[str])
+  - file_path (str)
+  - should_include_file (bool)
+  - explanation (str)
 
-        4. **Scroll to End or Find Position:**
-        If dependencies are alphabetical, find where "requests" should be inserted. Otherwise, scroll to the end of the file.
+### Sections
 
-        5. **Add New Line:**
-        On a new line, type `requests==2.28.1`.
-
-        6. **Check for Typos:**
-        Double-check that `requests==2.28.1` is typed correctly, with no extra spaces or errors.
-
-        7. **Save the File:**
-        Save the `requirements.txt` file.
-
-        8. **Confirm Save:**
-        Check the file's timestamp to ensure the save was successful.
-
-        9. **Run Installation Command:**
-        Open a terminal and navigate to your project directory.
-
-        10. **Execute Pip Command:**
-            Run the command `pip install -r requirements.txt` to install or update the dependencies listed in the file.
-
-        11. **Monitor Installation:**
-            Watch for any errors or warnings during the installation process to ensure `requests==2.28.1` installs correctly.
-        </example>
-
-        [start of requirements]
-        <requirements>
+#### Coding Task and Requirements
+ <requirements>
         {task}
         </requirements>
 
-        <files>
+#### File Details
+ <files>
         {path}
         {content}
         </files>
-        
-        Backlog:
-        <backlog>
-        {backlog}
-        </backlog>
 
-        output instructions:
-        <output_instructions>
-        {output_instructions}
-        </output_instructions>
+#### Backlog
+<backlog>
+ {backlog}
+</backlog>
+
+#### Output Instructions
+<output_instructions>
+{output_instructions}
+</output_instructions>
+
+### Examples
+<example>
+#### Example 1
+**User Request:**
+- **Coding Task:** Refactor the helper function to improve readability.
+- **File Details:**  
+  - **Path:** /src/utils/helper.py  
+  - **Content:**  
+    def helper(x):  
+        return x*2
+- **Backlog:** Optimize naming conventions and improve code clarity.
+- **Output Instructions:** Assess if the file needs changes; if yes, return a step-by-step checklist.
+
+**Expected Response:**
+- **detailed_instructions:**  
+  1. Review the function to identify unclear variable naming.  
+  2. Rename 'x' to 'input_value'.  
+  3. Add or update comments explaining the function's purpose.
+- **file_path:** "/src/utils/helper.py"
+- **should_include_file:** True
+- **explanation:** "The file is relevant because it contains the helper function that needs renaming and enhancements for clarity."
+
+#### Example 2
+**User Request:**
+- **Coding Task:** Update the database connection settings for production.
+- **File Details:**  
+  - **Path:** /config/db_settings.py  
+  - **Content:**  
+    DATABASE = {{'host': 'localhost', 'port': 5432}}
+- **Backlog:** Ensure all configuration settings match production requirements.
+- **Output Instructions:** Check if the file requires modifications according to production standards.
+
+**Expected Response:**
+- **detailed_instructions:**  
+  1. Verify the current host and port against production values.  
+  2. Update the host to the production server address.  
+  3. Confirm that additional security parameters are added if missing.
+- **file_path:** "/config/db_settings.py"
+- **should_include_file:** True
+- **explanation:** "The file is essential as it holds the critical database connection settings that must be updated for production."
+
+#### Example 3
+**User Request:**
+- **Coding Task:** Remove deprecated functions that are no longer used.
+- **File Details:**  
+  - **Path:** /src/old_code/deprecated.py  
+  - **Content:**  
+    def deprecated_f():  
+        pass
+- **Backlog:** The project no longer depends on deprecated code.
+- **Output Instructions:** Evaluate whether the file should be removed and, if not, provide removal steps.
+
+**Expected Response:**
+- **detailed_instructions:**  
+  1. Verify that the deprecated function is not referenced anywhere else in the project.  
+  2. Confirm with the team or documentation that the function is obsolete.  
+  3. Plan the removal and update any dependent tests accordingly.
+- **file_path:** "/src/old_code/deprecated.py"
+- **should_include_file:** False
+- **explanation:** "The file is not necessary because it contains deprecated code that has been replaced, hence a removal plan is recommended."
+</example>
+
+
+Your final evaluation (in Pydantic class format):
+
+  
         """
         )
+
         partial_prompt = prompt.partial(
             backlog=state["backlog"],
             path=file_info["path"],
             content=file_info["content"],
             task=state["task"],
-            output_instructions=state["output_instructions"],
         )
-        chain = partial_prompt | llm
+        
+        # Get format instructions and escape curly braces
         parser_instructions = parser.get_format_instructions()
-
-        response = chain.invoke({"output_instructions": parser_instructions})
-
-        parsed_output = retry_parser.parse(response.content)
-        state["reviews"].append(parsed_output)
-        state["iteration"] += 1
-
+        parser_instructions = parser_instructions.replace('{', '{{').replace('}', '}}')
+        
+        # Create the formatted prompt
+        formatted_prompt = partial_prompt.format_prompt(output_instructions=parser_instructions)
+        
+        try:
+            # Generate completion using the LLM
+            completion = llm.invoke(formatted_prompt.to_string())
+            
+            # Use parse_with_prompt to handle the output
+            parsed_output = retry_parser.parse_with_prompt(
+                completion=completion,
+                prompt_value=formatted_prompt
+            )
+            state["reviews"].append(parsed_output)
+        except Exception as e:
+            # Log error and continue with next file
+            print(f"Failed to parse review for {file_info['path']}: {str(e)}")
+            continue
+            
+        iteration += 1
+        
+    state["iteration"] = iteration
     return state
 
 
@@ -237,14 +318,15 @@ def think(state: BacklogState):
     
     """
     )
-    llm = get_ollama(model="qwen2.5:latest", temperature=0)
+    # llm = get_ollama(model="gemma2:latest", temperature=0)
+    llm = get_openrouter()
     partial_prompt = prompt.partial(
         task=state["task"],
         concatenated_files=concatenated_files,
     )
     chain = partial_prompt | llm
     state["backlog"] = chain.invoke({})
-    state["iteration"] += 1
+    state["iteration"] = state.get("iteration", 0) + 1
     return state
 
 
@@ -270,3 +352,17 @@ def main(task: str, file_information: List[FileInformation]):
     graph = build_backlog_graph()
     final_state = graph.invoke(state)
     return final_state
+
+
+if __name__ == "__main__":
+    from src.agent.workflow.pre_backlog import run_pre_backlog
+
+    task = "Update the password reset page where the user fills in the email field to request the password reset so that it displays the page, there is a link missing in the urls"
+    result = run_pre_backlog(
+        task=task,
+        vector_store_dir="grit-app",
+        working_dir=r"C:\dev\grit_app"
+    )
+    file_information = result['file_information']
+    final = main(task, file_information)
+    print(final)

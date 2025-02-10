@@ -1,8 +1,8 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
+
 from enum import Enum, auto
 from src.decorators.structured_output import structured_output
-
+from typing import Dict, List, Any, TypedDict, Optional
 class TestFramework(str, Enum):
     """
     Comprehensive enum of testing frameworks with language and type information.
@@ -155,3 +155,11 @@ def parse_search_queries(data: str):
     """
     
     return prompt
+
+
+
+
+class FileInformation(TypedDict):
+    name: str
+    path: str
+    content: str
