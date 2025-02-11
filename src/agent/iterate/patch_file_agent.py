@@ -176,6 +176,7 @@ def error_handling(state: PatchFileState) -> PatchFileState:
         Updated state with error handling
     """
     # Log errors, potentially create a new file or take corrective action
+    # todo rebuild patch or let it be done elsewhere
     print(f"Patch errors: {state['errors']}")
     return state
 

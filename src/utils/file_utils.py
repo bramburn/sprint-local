@@ -67,3 +67,36 @@ def safe_read_file(
             return f.read()
     except UnicodeDecodeError as e:
         raise ValueError(f"Failed to decode file: {str(e)}")
+
+
+def file_exists(
+    working_dir: Union[str, Path],
+    file_path: Union[str, Path],
+    use_full_path: bool = False
+) -> bool:
+    """
+    Safely check if a file exists with path safety checks.
+    
+    Args:
+        working_dir: Base directory path or full path to the file
+        file_path: Relative path to the file or filename
+        use_full_path: If True, treats working_dir as the full file path
+        
+    Returns:
+        bool: True if file exists and is a file, False otherwise
+    """
+    try:
+        # If use_full_path is True, use working_dir as the full file path
+        if use_full_path:
+            full_path = Path(working_dir).resolve()
+        else:
+            # Combine working_dir with file_path
+            full_path = Path(working_dir, file_path).resolve()
+        
+        # Check path safety if not using full path
+        if not use_full_path and not is_safe_path(Path(working_dir).resolve(), file_path):
+            return False
+        
+        return full_path.exists() and full_path.is_file()
+    except Exception:
+        return False

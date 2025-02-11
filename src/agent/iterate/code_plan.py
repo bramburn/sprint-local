@@ -84,7 +84,7 @@ def main():
     initial_state = {
         "working_directory": r"C:\dev\Roo-Code",
         "messages": [],
-        "task": "how do i add a new ai provider to cline dropdown?"
+        "task": "Create a test using vitest for anthropics.ts"
     }
     graph = setup_graph()
     final_state = graph.invoke(initial_state)
@@ -107,6 +107,7 @@ def main():
         "## Messages",
         *[f"- [{msg.type}] {msg.name or 'AI'}: {msg.content}..." for msg in final_state['messages']],
     ]
+    
     
     # Print formatted output
     print("\n".join(formatted_output))

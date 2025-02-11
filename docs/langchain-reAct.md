@@ -410,3 +410,153 @@ This guide will be updated quarterly. Submit revisions via [GitHub Issues](https
 ![server_inject_icon](https://pfst.cf2.poecdn.net/base/image/0e8698a6e80a985ec6d5f4d175c17866cee4b502ac78ccea3d02bb90fdca0b9f?w=100&h=33)
 Related searches:
 + [LangChain ReAct agent tool selection best practices](https://www.google.com/search?q=LangChain+ReAct+agent+tool+selection+best+practices&client=app-vertex-grounding-quora-poe)
+
+To set up the ReAct agent to think through the work and provide additional variables into the prompt, you can follow these steps:
+
+1. Create a custom prompt template with the desired variables:
+
+```python
+from langchain_core.prompts import PromptTemplate
+
+template = """
+Answer the following questions as best you can. You have access to the following tools: {tools}
+
+Use the following format:
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+Question: {input}
+{additional_context}
+Thought:{agent_scratchpad}
+"""
+
+prompt = PromptTemplate.from_template(template)
+```
+
+2. Create the ReAct agent with the custom prompt:
+
+```python
+from langgraph.prebuilt import create_react_agent
+
+agent = create_react_agent(llm, tools, prompt)
+```
+
+3. To provide additional variables when invoking the agent, use a dictionary:
+
+```python
+response = agent.invoke({
+    "input": "What's the weather like today?",
+    "additional_context": "The user is located in London.",
+    "tools": tool_descriptions,
+    "tool_names": tool_names,
+    "agent_scratchpad": ""
+})
+```
+
+This setup allows the agent to think through the work using the ReAct framework while incorporating additional context or variables into the prompt[1][3][6]. The agent will use the provided tools to reason and act based on the input and additional context[7].
+
+Citations:
+[1] https://python.langchain.com/docs/tutorials/agents/
+[2] https://www.reddit.com/r/LangChain/comments/1caja59/send_multiple_parameters_through_prompt_template/
+[3] https://api.python.langchain.com/en/latest/agents/langchain.agents.react.agent.create_react_agent.html
+[4] https://python.langchain.com/v0.1/docs/modules/model_io/prompts/partial/
+[5] https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/
+[6] https://github.com/langchain-ai/langchain/discussions/14101
+[7] https://langchain-ai.github.io/langgraph/how-tos/react-agent-from-scratch/
+[8] https://github.com/langchain-ai/langchain/discussions/12079
+
+The `create_react_agent` function in LangChain accepts several arguments that can be leveraged to customize the agent's behavior, particularly for creating a detailed backlog and checklist. Below is a breakdown of the key arguments and their relevance:
+
+### Key Arguments
+
+1. **`llm`**:
+   - The language model to use for reasoning and generating outputs. Choose an LLM that supports reasoning capabilities for detailed instructions.
+
+2. **`tools`**:
+   - A sequence of tools the agent can access. These tools can include APIs or functions that help the agent perform specific tasks, such as querying a database or performing calculations.
+
+3. **`prompt`**:
+   - The prompt template used to guide the agent's reasoning process. This is critical for structuring outputs like a backlog or checklist. You can design a prompt that explicitly instructs the agent to break down tasks into detailed steps.
+
+4. **`output_parser`** (Optional):
+   - An `AgentOutputParser` to parse the LLM's output into a structured format, such as JSON or a Pydantic model. This is useful for ensuring outputs are machine-readable and well-organized.
+
+5. **`tools_renderer`** (Default: `render_text_description`):
+   - A callable that converts tool descriptions into a string format passed to the LLM. Customizing this can help make tool descriptions more concise or detailed based on your needs.
+
+6. **`stop_sequence`** (Default: `True`):
+   - Controls how the agent determines when to stop generating responses:
+     - `True`: Adds "Observation:" as a stop token.
+     - `False`: No stop token is added.
+     - List of strings: Custom stop tokens can be defined for precise control over response termination.
+
+### Recommendations for Backlog and Checklist Creation
+
+To iterate through instructions and produce a detailed backlog or checklist:
+- **Customize the Prompt**: Design a prompt that explicitly instructs the agent to break down instructions into steps, e.g., "For each task, provide a detailed breakdown of subtasks and organize them into a backlog."
+- **Use an Output Parser**: Define an `AgentOutputParser` or Pydantic model to enforce structured outputs like:
+  ```python
+  class TaskOutput(BaseModel):
+      backlog: List[str]
+      checklist: List[str]
+  ```
+- **Leverage Tools**: Include tools that assist with task decomposition, such as APIs for project management or specialized reasoning functions.
+- **Stop Sequence**: Use custom stop sequences if you need precise control over multi-step outputs.
+
+By combining these arguments effectively, you can create an agent tailored for generating detailed backlogs and checklists efficiently[1][2][3].
+
+Citations:
+[1] https://api.python.langchain.com/en/latest/agents/langchain.agents.react.agent.create_react_agent.html
+[2] https://api.python.langchain.com/en/latest/langchain/agents/langchain.agents.react.agent.create_react_agent.html
+[3] https://python.langchain.com/api_reference/langchain/agents/langchain.agents.react.agent.create_react_agent.html
+[4] https://www.restack.io/p/langgraph-prebuilt-create-react-agent-answer-cat-ai
+[5] https://python.langchain.com/docs/tutorials/agents/
+[6] https://github.com/langchain-ai/langchain/issues/25885
+[7] https://langchain-ai.github.io/langgraph/how-tos/react-agent-from-scratch/
+[8] https://github.com/langchain-ai/langchain/issues/25964
+
+To get a structured output from the create_react_agent in LangChain, you can use the `response_format` parameter when creating the agent[1]. Here's how to do it:
+
+1. Define your desired output schema using a Pydantic model:
+
+```python
+from pydantic import BaseModel
+
+class ResponseFormat(BaseModel):
+    my_special_output: str
+```
+
+2. Pass the `response_format` parameter when creating the ReAct agent:
+
+```python
+from langchain.agents import create_react_agent
+
+graph = create_react_agent(
+    model,
+    tools=tools,
+    response_format=ResponseFormat
+)
+```
+
+This approach makes an additional LLM call at the end of the ReAct loop to produce a structured output response[1]. The agent will then return the output in the specified format, allowing you to easily access the structured data in your application.
+
+Alternatively, you can use the ReActOutputParser class to parse the output of the agent into a structured format[2][7]. This class expects the output to be in a specific format and can help you avoid JSON parsing errors.
+
+When using the ReActOutputParser, make sure your prompt instructs the model to format its final answer according to your desired structure. This approach may require more careful prompt engineering but can provide more control over the output format.
+
+Citations:
+[1] https://langchain-ai.github.io/langgraph/how-tos/create-react-agent-structured-output/
+[2] https://github.com/langchain-ai/langchain/discussions/26014
+[3] https://api.python.langchain.com/en/latest/langchain/agents/langchain.agents.react.agent.create_react_agent.html
+[4] https://langchain-ai.github.io/langgraph/how-tos/react-agent-structured-output/
+[5] https://python.langchain.com/v0.1/docs/modules/agents/how_to/agent_structured/
+[6] https://www.reddit.com/r/LangChain/comments/1hgxyb5/with_stuctured_output_in_create_react_agent/
+[7] https://github.com/langchain-ai/langchain/discussions/25359
+[8] https://api.python.langchain.com/en/latest/agents/langchain.agents.react.output_parser.ReActOutputParser.html
