@@ -105,11 +105,7 @@ def main():
         "```",
         "",
         "## Messages",
-        "### Human Messages:",
-        *[f"- {msg.content}..." for msg in final_state['messages'] if isinstance(msg, HumanMessage)],
-        "",
-        "### AI Messages:",
-        *[f"- {msg.content}..." for msg in final_state['messages'] if isinstance(msg, AIMessage)]
+        *[f"- [{msg.type}] {msg.name or 'AI'}: {msg.content}..." for msg in final_state['messages']],
     ]
     
     # Print formatted output

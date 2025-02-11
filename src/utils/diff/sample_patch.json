@@ -1,0 +1,26 @@
+[
+    {
+        "start_a": 0,
+        "start_b": 0,
+        "operations": [
+            {
+                "op": "-",
+                "content": "The quick brown fox"
+            },
+            {
+                "op": "-",
+                "content": "jumps over the lazy dog"
+            }
+        ]
+    },
+    {
+        "start_a": 3,
+        "start_b": 1,
+        "operations": [
+            {
+                "op": "+",
+                "content": "ut labore et dolore magna aliqua."
+            }
+        ]
+    }
+]

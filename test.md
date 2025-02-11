@@ -15,8 +15,7 @@ how do i add a new ai provider to cline dropdown?
 ```
 
 ## Messages
-### Human Messages:
-- Human: ### Purpose
+- [human] AI: Human: ### Purpose
 
 You are an expert developer tasked with analyzing the structure of a coding project and creating a detailed plan of action to execute a specific coding task.
 
@@ -126,69 +125,57 @@ produce a detailed plan of action to execute the following task: how do i add a 
 
 Your plan of action:
 ...
+- [ai] AI: ### Plan of Action: Add a New AI Provider to Cline Dropdown
 
-### AI Messages:
-- **Plan of Action: Adding a New AI Provider to Cline Dropdown**
+#### Step 1: Navigate to `project/src/utils/`
 
-**Step 1: Analyze the Project Structure**
+Navigate to the `utils` directory in the `project` directory to access the `helper.py` file where the new AI provider function will be added.
 
-* Navigate to `project/src/` and review the directory structure.
-* Identify the relevant files and directories related to the Cline dropdown, such as `cline.py` and `models/`.
-* Note the existing AI providers and their corresponding code in `models/`.
+#### Step 2: Review the existing functions in `helper.py`
 
-**Step 2: Understand the Task Requirements**
+Open `helper.py` and review the existing functions to understand the coding style and structure of the file.
 
-* Review the task requirements to understand the new AI provider's functionality and integration requirements.
-* Identify any specific dependencies or libraries required for the new AI provider.
+#### Step 3: Open `config.py` to understand the data format
 
-**Step 3: Design the New AI Provider**
+Open `config.py` to understand the data format that the new AI provider function will be reading from. This will help in determining the data structure and types that the function will process.
 
-* Create a new file `new_ai_provider.py` in `project/src/models/` to define the new AI provider's functionality.
-* Implement the necessary logic for the new AI provider, including data processing and model training.
-* Ensure the new AI provider is compatible with the existing Cline dropdown framework.
+#### Step 4: Add a new function in `helper.py` that reads data from `config.py`
 
-**Step 4: Integrate the New AI Provider**
+Add a new function in `helper.py` that reads data from `config.py`. The function should be named according to the task, for example, `get_ai_provider`.
 
-* Modify `cline.py` to include the new AI provider as an option in the dropdown menu.
-* Update the `models` module to include the new AI provider's configuration and initialization code.
-* Test the new AI provider by running `test_cline.py` in `project/tests/`.
+```python
+# src/utils/helper.py
+def get_ai_provider():
+    # Read data from config.py
+    config = import config
+    ai_provider = config.ai_provider
+    return ai_provider
+```
 
-**Step 5: Test and Refine**
+#### Step 5: Test the new function by running `test_helper.py` in `project/tests/test_utils/`
 
-* Test the new AI provider thoroughly to ensure it functions as expected.
-* Refine the implementation as needed to optimize performance and accuracy.
-* Document the new AI provider's functionality and integration process.
+Run the tests in `project/tests/test_utils/` to ensure the new function works as expected. Test the function with different inputs and verify that it returns the correct output.
 
-**Step 6: Commit and Deploy**
+#### Step 6: If tests pass, commit changes and push to the repository
 
-* Commit the changes to the repository and push them to the remote server.
-* Deploy the updated code to the production environment.
-* Test the new AI provider in the production environment to ensure it functions as expected.
+If the tests pass, commit the changes to the repository and push them to the remote repository. This will ensure that the new function is available for future use.
 
-**Step 7: Monitor and Maintain**
+#### Step 7: Update the Cline dropdown to use the new AI provider
 
-* Monitor the new AI provider's performance and accuracy in the production environment.
-* Gather feedback from users and make any necessary adjustments to the implementation.
-* Continuously test and refine the new AI provider to ensure it remains a reliable and effective solution.
+Update the Cline dropdown to use the new AI provider function. This may involve adding code to the Cline dropdown codebase that calls the `get_ai_provider` function and uses its output to populate the dropdown.
 
-**Timeline:**
+#### Step 8: Test the updated Cline dropdown
 
-* Step 1: Analyze project structure and task requirements (1 hour)
-* Step 2: Design the new AI provider (2 hours)
-* Step 3: Integrate the new AI provider (3 hours)
-* Step 4: Test and refine the new AI provider (4 hours)
-* Step 5: Commit and deploy the changes (1 hour)
-* Step 6: Monitor and maintain the new AI provider (Ongoing)
+Test the updated Cline dropdown to ensure that it is working correctly and displaying the correct AI providers.
 
-**Resources:**
+#### Step 9: Document the changes
 
-* Python 3.x
-* Cline framework
-* New AI provider library or framework (if applicable)
-* Test environment (e.g., Docker, virtual machine)
+Document the changes made to the codebase, including the new function and the updated Cline dropdown. This will help future developers understand how the code works and make it easier to maintain the codebase.
 
-**Assumptions:**
+### Additional Tasks
 
-* The new AI provider is compatible with the existing Cline dropdown framework.
-* The necessary dependencies and libraries are available and installed.
-* The project's codebase is well-organized and maintainable....
+* Create a new section in the `README.md` file to document the new AI provider functionality.
+* Consider adding a new configuration option to allow the user to select the AI provider.
+* Update the code to handle any errors that may occur when retrieving the AI provider data.
+
+By following these steps, you can successfully add a new AI provider to the Cline dropdown....

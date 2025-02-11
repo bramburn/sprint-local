@@ -26,14 +26,16 @@ def is_safe_path(base_path: Union[str, Path], requested_path: Union[str, Path]) 
 
 def safe_read_file(
     working_dir: Union[str, Path],
-    file_path: Union[str, Path]
+    file_path: Union[str, Path],
+    use_full_path: bool = False
 ) -> str:
     """
     Safely read a file's contents with various safeguards.
     
     Args:
-        working_dir: Base directory path
-        file_path: Relative path to the file
+        working_dir: Base directory path or full path to the file
+        file_path: Relative path to the file or filename
+        use_full_path: If True, treats working_dir as the full file path
         
     Returns:
         str: Contents of the file
@@ -43,16 +45,22 @@ def safe_read_file(
         FileNotFoundError: If file doesn't exist
         PermissionError: If file can't be accessed
     """
-    if not is_safe_path(working_dir, file_path):
+    # If use_full_path is True, use working_dir as the full file path
+    if use_full_path:
+        full_path = Path(working_dir).resolve()
+    else:
+        # Combine working_dir with file_path
+        full_path = Path(working_dir, file_path).resolve()
+    
+    # Check path safety if not using full path
+    if not use_full_path and not is_safe_path(Path(working_dir).resolve(), file_path):
         raise ValueError(f"Access to path '{file_path}' is not allowed")
     
-    full_path = Path(working_dir, file_path).resolve()
-    
     if not full_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise FileNotFoundError(f"File not found: {full_path}")
     
     if not full_path.is_file():
-        raise ValueError(f"Path is not a file: {file_path}")
+        raise ValueError(f"Path is not a file: {full_path}")
     
     try:
         with open(full_path, "r", encoding="utf-8") as f:
