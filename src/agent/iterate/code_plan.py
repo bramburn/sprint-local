@@ -10,6 +10,7 @@ import os
 
 from src.utils.dir_tool import scan_directory
 from src.llm.openrouter import get_openrouter
+from src.agent.iterate.backlog_agent import BacklogAgent  # Import BacklogAgent
 
 class CodePlan(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
@@ -108,13 +109,13 @@ def main():
         *[f"- [{msg.type}] {msg.name or 'AI'}: {msg.content}..." for msg in final_state['messages']],
     ]
     
-    
     # Print formatted output
     print("\n".join(formatted_output))
     
     # Save output to test.md in the current directory
     with open("test.md", "w", encoding="utf-8") as f:
         f.write("\n".join(formatted_output))
+   
 
 if __name__ == "__main__":
     main()

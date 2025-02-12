@@ -20,6 +20,22 @@ class BacklogAnalysisOutput(BaseModel):
     original_prompt: str = Field(..., description="Original user prompt for reference")
     relevant_files: List[str] = Field(..., description="List of files relevant to the task")
 
+class FilePathSchema(BaseModel):
+    file_path: str = Field(description="Relative path to the file from the working directory")
+
+class SearchQuerySchema(BaseModel):
+    query: str = Field(description="Query to search for similar code")
+
+class DirectoryStructureSchema(BaseModel):
+    include_patterns: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of glob patterns to include in the directory scan"
+    )
+    exclude_patterns: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of glob patterns to exclude from the directory scan"
+    )
+
 class BacklogAgent:
     def __init__(self, working_dir: str):
         """
@@ -29,8 +45,8 @@ class BacklogAgent:
             working_dir: Base directory path for resolving relative file paths
         """
         self.working_dir = os.path.abspath(working_dir)
-        self.llm = get_openrouter()
-        self.vector_store = load_vector_store_by_name("roo-code")
+        self.llm = get_openrouter(model="google/gemini-2.0-flash-lite-preview-02-05:free")
+        self.vector_store = load_vector_store_by_name("roo")
         
         # Define tools
         self.tools = [
@@ -38,35 +54,31 @@ class BacklogAgent:
                 name="check_file_exists",
                 description="Check if a file exists in the codebase. Provide the file path relative to the working directory.",
                 func=self._check_file_exists,
-                args_schema=lambda: BaseModel.construct(
-                    __fields__={"file_path": (str, Field(description="Relative path to the file from the working directory"))}
-                ),
+                args_schema=FilePathSchema,
             ),
             StructuredTool(
                 name="read_file",
                 description="Read contents of a file. Provide the file path relative to the working directory.",
                 func=self._read_file,
-                args_schema=lambda: BaseModel.construct(
-                    __fields__={"file_path": (str, Field(description="Relative path to the file from the working directory"))}
-                ),
+                args_schema=FilePathSchema,
             ),
             StructuredTool(
                 name="analyze_content",
                 description="Analyze file content and provide insights. Provide the file path relative to the working directory.",
                 func=self._analyze_content,
-                args_schema=lambda: BaseModel.construct(
-                    __fields__={
-                        "file_path": (str, Field(description="Relative path to the file from the working directory")),
-                    }
-                ),
+                args_schema=FilePathSchema,
             ),
             StructuredTool(
                 name="search_similar_code",
                 description="Search for similar code snippets in the vector store",
                 func=self._search_similar_code,
-                args_schema=lambda: BaseModel.construct(
-                    __fields__={"query": (str, Field(description="Query to search for similar code"))}
-                ),
+                args_schema=SearchQuerySchema,
+            ),
+            StructuredTool(
+                name="directory_structure",
+                description="Get a list of files in the working directory, respecting include and exclude patterns",
+                func=self._get_directory_structure,
+                args_schema=DirectoryStructureSchema,
             ),
         ]
 
@@ -96,12 +108,15 @@ class BacklogAgent:
     def _create_agent(self):
         def _format_tool_to_function(tool):
             return {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.args,
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.args,
+                }
             }
-
-        functions = [_format_tool_to_function(t) for t in self.tools]
+        
+        tools = [_format_tool_to_function(t) for t in self.tools]
         
         return (
             {
@@ -112,7 +127,7 @@ class BacklogAgent:
                 ),
             }
             | self.prompt
-            | self.llm.bind(functions=functions)
+            | self.llm.bind(tools=tools, tool_choice="auto")
             | OpenAIFunctionsAgentOutputParser()
         )
 
@@ -155,6 +170,19 @@ class BacklogAgent:
             }
             for doc, score in results
         ]
+
+    def _get_directory_structure(self, include_patterns: Optional[List[str]] = None, exclude_patterns: Optional[List[str]] = None) -> List[str]:
+        """Get a list of files in the working directory, respecting include and exclude patterns"""
+        from src.utils.dir_tool import scan_directory
+        
+        try:
+            return scan_directory(
+                directory_path=self.working_dir,
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns
+            )
+        except Exception as e:
+            raise RuntimeError(f"Error getting directory structure: {str(e)}")
 
     def improve_backlog(self, backlog_text: str, original_prompt: str) -> BacklogAnalysisOutput:
         """
