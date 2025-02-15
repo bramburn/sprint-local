@@ -25,36 +25,25 @@ def is_safe_path(base_path: Union[str, Path], requested_path: Union[str, Path]) 
 
 
 def safe_read_file(
-    working_dir: Union[str, Path],
     file_path: Union[str, Path],
-    use_full_path: bool = False
+    include_line_numbers: bool = False
 ) -> str:
     """
     Safely read a file's contents with various safeguards.
     
     Args:
-        working_dir: Base directory path or full path to the file
-        file_path: Relative path to the file or filename
-        use_full_path: If True, treats working_dir as the full file path
+        file_path: Full path to the file
+        include_line_numbers: If True, prepends line numbers to each line
         
     Returns:
-        str: Contents of the file
+        str: Contents of the file, optionally with line numbers
         
     Raises:
         ValueError: If path is unsafe
         FileNotFoundError: If file doesn't exist
         PermissionError: If file can't be accessed
     """
-    # If use_full_path is True, use working_dir as the full file path
-    if use_full_path:
-        full_path = Path(working_dir).resolve()
-    else:
-        # Combine working_dir with file_path
-        full_path = Path(working_dir, file_path).resolve()
-    
-    # Check path safety if not using full path
-    if not use_full_path and not is_safe_path(Path(working_dir).resolve(), file_path):
-        raise ValueError(f"Access to path '{file_path}' is not allowed")
+    full_path = Path(file_path).resolve()
     
     if not full_path.exists():
         raise FileNotFoundError(f"File not found: {full_path}")
@@ -64,38 +53,29 @@ def safe_read_file(
     
     try:
         with open(full_path, "r", encoding="utf-8") as f:
-            return f.read()
+            if include_line_numbers:
+                # Add line numbers to each line
+                return ''.join(f'{i+1:4d} | {line}' for i, line in enumerate(f))
+            else:
+                return f.read()
     except UnicodeDecodeError as e:
         raise ValueError(f"Failed to decode file: {str(e)}")
 
 
 def file_exists(
-    working_dir: Union[str, Path],
-    file_path: Union[str, Path],
-    use_full_path: bool = False
+    file_path: Union[str, Path]
 ) -> bool:
     """
     Safely check if a file exists with path safety checks.
     
     Args:
-        working_dir: Base directory path or full path to the file
-        file_path: Relative path to the file or filename
-        use_full_path: If True, treats working_dir as the full file path
+        file_path: Full path to the file
         
     Returns:
         bool: True if file exists and is a file, False otherwise
     """
     try:
-        # If use_full_path is True, use working_dir as the full file path
-        if use_full_path:
-            full_path = Path(working_dir).resolve()
-        else:
-            # Combine working_dir with file_path
-            full_path = Path(working_dir, file_path).resolve()
-        
-        # Check path safety if not using full path
-        if not use_full_path and not is_safe_path(Path(working_dir).resolve(), file_path):
-            return False
+        full_path = Path(file_path).resolve()
         
         return full_path.exists() and full_path.is_file()
     except Exception:

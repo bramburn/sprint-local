@@ -14,7 +14,7 @@ from src.utils.diff.apply_patch import PatchApplicator
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser, OutputFixingParser, RetryOutputParser
+from langchain.output_parsers import PydanticOutputParser, OutputFixingParser
 from src.llm.openrouter import get_openrouter
 
 class PatchFileState(TypedDict):
@@ -177,6 +177,7 @@ def error_handling(state: PatchFileState) -> PatchFileState:
     """
     # Log errors, potentially create a new file or take corrective action
     # todo rebuild patch or let it be done elsewhere
+    # TODO: implement corrective action
     print(f"Patch errors: {state['errors']}")
     return state
 
@@ -193,22 +194,23 @@ def create_patch_file_graph():
     workflow.add_node("get_file_content", get_file_content)
     workflow.add_node("create_temp_file", create_temp_file)
     workflow.add_node("apply_patch", apply_patch_to_file)
-    workflow.add_node("error_handling", error_handling)
+    # workflow.add_node("error_handling", error_handling)
     
     # Define edges
     workflow.set_entry_point("get_file_content")
     workflow.add_edge("get_file_content", "create_temp_file")
     workflow.add_edge("create_temp_file", "apply_patch")
+    workflow.add_edge("apply_patch", END)
     
-    # Conditional edge based on patch validation
-    workflow.add_conditional_edges(
-        "apply_patch",
-        validate_patch,
-        {
-            'error_handling': "error_handling",
-            END: END
-        }
-    )
+    # # Conditional edge based on patch validation
+    # workflow.add_conditional_edges(
+    #     "apply_patch",
+    #     validate_patch,
+    #     {
+    #         'error_handling': "error_handling",
+    #         END: END
+    #     }
+    # )
     
     # Compile the graph
     return workflow.compile()

@@ -20,7 +20,6 @@ class SolutionState(TypedDict):
     Attributes:
     - file_path: Path to the original file
     - original_content: Full content of the file
-    - line_numbered_content: Content with line numbers
     - programming_language: Language of the file
     - user_instruction: User's modification request
     - generated_solutions: List of generated solution candidates
@@ -31,7 +30,6 @@ class SolutionState(TypedDict):
     """
     file_path: str
     original_content: str
-    line_numbered_content: List[str]
     programming_language: str
     user_instruction: str
     generated_solutions: List[str]
@@ -107,18 +105,28 @@ def read_file_input(state: SolutionState) -> SolutionState:
     Returns:
         Updated state with file content and metadata
     """
-    content = safe_read_file(state['file_path'], '', use_full_path=True)
-    line_content = content.splitlines()
+    content = safe_read_file(state['file_path'])
+    
+    
+    
     
     return {
         **state,
         'original_content': content,
-        'line_numbered_content': line_content,
         'programming_language': detect_language(state['file_path']),
         'generated_solutions': [],
         'validation_results': [],
         'iteration_count': 0
     }
+    
+    
+def use_vector_db(state: SolutionState) -> SolutionState:
+    """
+    Use a vector database to store the file content and the generated solutions.
+    """
+    
+    
+    return state
 
 def generate_solutions(state: SolutionState) -> SolutionState:
     """

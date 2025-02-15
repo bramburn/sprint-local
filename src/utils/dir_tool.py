@@ -6,10 +6,20 @@ from typing import List, Optional
 def scan_directory(
     directory_path: str,
     include_patterns: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[str]] = None
+    exclude_patterns: Optional[List[str]] = None,
+    absolute_paths: bool = False
 ) -> List[str]:
     """
     Scan a directory and return a list of files matching include patterns and not matching exclude patterns.
+
+    Args:
+        directory_path (str): Path to the directory to scan
+        include_patterns (Optional[List[str]], optional): Patterns to include. Defaults to None.
+        exclude_patterns (Optional[List[str]], optional): Patterns to exclude. Defaults to None.
+        absolute_paths (bool, optional): If True, returns absolute paths. If False, returns relative paths. Defaults to False.
+
+    Returns:
+        List[str]: List of file paths (relative or absolute based on absolute_paths parameter)
     """
     # Default patterns if none provided
     default_exclude = [
@@ -68,13 +78,21 @@ def scan_directory(
                 if file_path.is_file() and not is_excluded(file_path):
                     all_files.append(file_path)
 
-        # Convert to relative paths and sort
-        relative_paths = [
-            str(file_path.relative_to(directory_path)).replace('\\', '/') 
-            for file_path in sorted(all_files)
-        ]
+        # Convert paths based on absolute_paths flag
+        if absolute_paths:
+            # Return absolute paths
+            paths = [
+                str(file_path)
+                for file_path in sorted(all_files)
+            ]
+        else:
+            # Return relative paths (default behavior)
+            paths = [
+                str(file_path.relative_to(directory_path)).replace('\\', '/') 
+                for file_path in sorted(all_files)
+            ]
         
-        return relative_paths
+        return paths
     
     except Exception as e:
         raise RuntimeError(f"Error scanning directory: {str(e)}")
@@ -93,14 +111,25 @@ if __name__ == "__main__":
             "**/webview-ui/node_modules/**"
         ]
         
-        files = scan_directory(
+        # Relative paths (default)
+        print("\nRelative Paths:")
+        relative_files = scan_directory(
             directory,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns
         )
+        for file in relative_files:
+            print(f"- {file}")
         
-        print("\nFound files:")
-        for file in files:
+        # Absolute paths
+        print("\nAbsolute Paths:")
+        absolute_files = scan_directory(
+            directory,
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
+            absolute_paths=True
+        )
+        for file in absolute_files:
             print(f"- {file}")
             
     except Exception as e:
